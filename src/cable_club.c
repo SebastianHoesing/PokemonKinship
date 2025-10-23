@@ -2,6 +2,7 @@
 #include "gflib.h"
 #include "battle.h"
 #include "battle_records.h"
+#include "battle_setup.h"
 #include "cable_club.h"
 #include "event_data.h"
 #include "event_scripts.h"
@@ -10,8 +11,8 @@
 #include "link.h"
 #include "load_save.h"
 #include "m4a.h"
+#include "menu.h"
 #include "mystery_gift.h"
-#include "new_menu_helpers.h"
 #include "overworld.h"
 #include "quest_log.h"
 #include "script.h"
@@ -87,7 +88,7 @@ static void CreateLinkupTask(u8 minPlayers, u8 maxPlayers)
 static void PrintNumPlayersInLink(u16 windowId, s32 numPlayers)
 {
     ConvertIntToDecimalStringN(gStringVar1, numPlayers, STR_CONV_MODE_LEFT_ALIGN, 1);
-    SetStdWindowBorderStyle(windowId, FALSE);
+    SetStandardWindowBorderStyle(windowId, FALSE);
     StringExpandPlaceholders(gStringVar4, gText_NumPlayerLink);
     AddTextPrinterParameterized(windowId, FONT_NORMAL, gStringVar4, 0, 0, TEXT_SKIP_DRAW, NULL);
     CopyWindowToVram(windowId, COPYWIN_FULL);
@@ -175,17 +176,6 @@ static bool32 CheckSioErrored(u8 taskId)
         return TRUE;
     }
     return FALSE;
-}
-
-// Unused
-static void Task_DelayedBlockRequest(u8 taskId)
-{
-    gTasks[taskId].data[0]++;
-    if (gTasks[taskId].data[0] == 10)
-    {
-        SendBlockRequest(BLOCK_REQ_SIZE_100);
-        DestroyTask(taskId);
-    }
 }
 
 static void Task_LinkupStart(u8 taskId)
@@ -409,7 +399,6 @@ static void Task_LinkupAwaitTrainerCardData(u8 taskId)
 {
     u8 i;
     u16 version;
-    u8 * dest;
 
     if (CheckLinkErrored(taskId) == TRUE)
         return;
@@ -667,12 +656,12 @@ static void Task_StartWiredCableClubBattle(u8 taskId)
             gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE;
             break;
         case USING_MULTI_BATTLE:
-            ReducePlayerPartyToThree();
+            ReducePlayerPartyToSelectedMons();
             gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_MULTI;
             break;
         }
         CleanupOverworldWindowsAndTilemaps();
-        gTrainerBattleOpponent_A = TRAINER_LINK_OPPONENT;
+        TRAINER_BATTLE_PARAM.opponentA = TRAINER_LINK_OPPONENT;
         SetMainCallback2(CB2_InitBattle);
         gMain.savedCallback = CB2_ReturnFromCableClubBattle;
         DestroyTask(taskId);
@@ -740,12 +729,12 @@ static void Task_StartWirelessCableClubBattle(u8 taskId)
             gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE;
             break;
         case USING_MULTI_BATTLE:
-            ReducePlayerPartyToThree();
+            ReducePlayerPartyToSelectedMons();
             gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_LINK | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_MULTI;
             break;
         }
         CleanupOverworldWindowsAndTilemaps();
-        gTrainerBattleOpponent_A = TRAINER_LINK_OPPONENT;
+        TRAINER_BATTLE_PARAM.opponentA = TRAINER_LINK_OPPONENT;
         SetMainCallback2(CB2_InitBattle);
         gMain.savedCallback = CB2_ReturnFromCableClubBattle;
         DestroyTask(taskId);
@@ -964,13 +953,6 @@ void EnterColosseumPlayerSpot(void)
         CreateTask_EnterCableClubSeat(Task_StartWiredCableClubBattle);
 }
 
-// Unused
-static void CreateTask_EnterCableClubSeatNoFollowup(void)
-{
-    CreateTask(Task_EnterCableClubSeat, 80);
-    ScriptContext_Stop();
-}
-
 void Script_ShowLinkTrainerCard(void)
 {
     ShowTrainerCardInLink(gSpecialVar_0x8006, CB2_ReturnToFieldContinueScriptPlayMapMusic);
@@ -1008,19 +990,3 @@ void Task_WaitForLinkPlayerConnection(u8 taskId)
 }
 
 #undef tTimer
-
-static void Task_WaitExitToScript(u8 taskId)
-{
-    if (!gReceivedRemoteLinkPlayers)
-    {
-        ScriptContext_Enable();
-        DestroyTask(taskId);
-    }
-}
-
-// Unused
-static void ExitLinkToScript(u8 taskId)
-{
-    SetCloseLinkCallback();
-    gTasks[taskId].func = Task_WaitExitToScript;
-}

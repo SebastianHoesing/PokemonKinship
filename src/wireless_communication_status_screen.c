@@ -1,7 +1,6 @@
 #include "global.h"
 #include "gflib.h"
 #include "task.h"
-#include "new_menu_helpers.h"
 #include "scanline_effect.h"
 #include "m4a.h"
 #include "dynamic_placeholder_text_util.h"
@@ -23,13 +22,19 @@ enum {
 };
 
 enum {
+#ifndef UBFIX
     GROUPTYPE_NONE = -1,
+#endif // UBFIX
     GROUPTYPE_TRADE,
     GROUPTYPE_BATTLE,
     GROUPTYPE_UNION,
     GROUPTYPE_TOTAL,
     NUM_GROUPTYPES
 };
+
+#ifdef UBFIX
+#define GROUPTYPE_NONE 0xFF
+#endif // UBFIX
 
 static struct
 {
@@ -381,6 +386,13 @@ static u32 CountPlayersInGroupAndGetActivity(struct RfuPlayer * player, u32 * gr
 
     for (i = 0; i < ARRAY_COUNT(sActivityGroupInfo); i++)
     {
+#ifdef UBFIX
+        // GROUPTYPE_NONE is 0xFF, and shouldn't be used as an index into groupCounts.
+        // In theory the only activity with this group type (ACTIVITY_SEARCH) wouldn't
+        // satisfy the condition below, but not necessarily.
+        if (group_type(i) == GROUPTYPE_NONE)
+            continue;
+#endif
         if (activity == group_activity(i) && player->groupScheduledAnim == UNION_ROOM_SPAWN_IN)
         {
             if (group_players(i) == 0)

@@ -3,8 +3,10 @@
 
 #include "global.h"
 
+extern u16 gScrollableMultichoice_ScrollOffset;
+
 u8 GetLeadMonIndex(void);
-s32 CountDigits(s32 number);
+size_t CountDigits(s32 value);
 void TV_PrintIntToStringVar(u8 varidx, s32 number);
 u16 GetStarterSpecies(void);
 void StopPokemonLeagueLightingEffectTask(void);
@@ -27,5 +29,6 @@ void ResetFieldTasksArgs(void);
 bool8 UsedPokemonCenterWarp(void);
 void QuestLog_CheckDepartingIndoorsMap(void);
 void QuestLog_TryRecordDepartedLocation(void);
+bool8 InPokemonCenter(void);
 
 #endif // GUARD_FIELD_SPECIALS_H

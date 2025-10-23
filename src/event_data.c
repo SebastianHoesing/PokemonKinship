@@ -11,7 +11,10 @@ static bool8 IsFlagOrVarStoredInQuestLog(u16 idx, u8 a1);
 
 #define SPECIAL_FLAGS_SIZE (NUM_SPECIAL_FLAGS / 8)  // 8 flags per byte
 #define TEMP_FLAGS_SIZE    (NUM_TEMP_FLAGS / 8)
+#define DAILY_FLAGS_SIZE    (NUM_DAILY_FLAGS / 8)
 #define TEMP_VARS_SIZE     (NUM_TEMP_VARS * 2)      // 1/2 var per byte
+
+#define NUM_DAILY_FLAGS   (DAILY_FLAGS_END - DAILY_FLAGS_START + 1)
 
 EWRAM_DATA u16 gSpecialVar_0x8000 = 0;
 EWRAM_DATA u16 gSpecialVar_0x8001 = 0;
@@ -35,9 +38,28 @@ EWRAM_DATA u16 gSpecialVar_PrevTextColor = 0;
 EWRAM_DATA u16 gSpecialVar_0x8014 = 0;
 EWRAM_DATA u8 sSpecialFlags[SPECIAL_FLAGS_SIZE] = {};
 
+#if TESTING
+#define TEST_FLAGS_SIZE     1
+#define TEST_VARS_SIZE      8
+EWRAM_DATA static u8 sTestFlags[TEST_FLAGS_SIZE] = {0};
+EWRAM_DATA static u16 sTestVars[TEST_VARS_SIZE] = {0};
+#endif // TESTING
+
 COMMON_DATA u16 gLastQuestLogStoredFlagOrVarIdx = 0;
 
 extern u16 *const gSpecialVars[];
+
+const u16 gBadgeFlags[NUM_BADGES] =
+{
+    FLAG_BADGE01_GET,
+    FLAG_BADGE02_GET,
+    FLAG_BADGE03_GET,
+    FLAG_BADGE04_GET,
+    FLAG_BADGE05_GET,
+    FLAG_BADGE06_GET,
+    FLAG_BADGE07_GET,
+    FLAG_BADGE08_GET,
+};
 
 void InitEventData(void)
 {
@@ -57,13 +79,10 @@ void ClearTempFieldEventData(void)
     FlagClear(FLAG_SYS_INFORMED_OF_LOCAL_WIRELESS_PLAYER);
 }
 
-// Unused
-static void DisableNationalPokedex_RSE(void)
+
+void ClearDailyFlags(void)
 {
-    u16 *ptr = GetVarPointer(VAR_0x403C);
-    gSaveBlock2Ptr->pokedex.unused = 0;
-    *ptr = 0;
-    FlagClear(FLAG_0x838);
+    memset(gSaveBlock1Ptr->flags + (DAILY_FLAGS_START / 8), 0, DAILY_FLAGS_SIZE);
 }
 
 // The magic numbers used here (0xDA and 0x0302) correspond to those
@@ -75,17 +94,6 @@ void EnableNationalPokedex_RSE(void)
     gSaveBlock2Ptr->pokedex.unused = 0xDA;
     *ptr = 0x0302;
     FlagSet(FLAG_0x838);
-}
-
-// Unused
-static bool32 IsNationalPokedexEnabled_RSE(void)
-{
-    if (gSaveBlock2Ptr->pokedex.unused == 0xDA
-            && VarGet(VAR_0x403C) == 0x0302
-            && FlagGet(FLAG_0x838))
-        return TRUE;
-
-    return FALSE;
 }
 
 void DisableNationalPokedex(void)
@@ -176,11 +184,12 @@ void EnableResetRTC(void)
 
 bool32 CanResetRTC(void)
 {
-    if (!FlagGet(FLAG_SYS_RESET_RTC_ENABLE))
-        return FALSE;
-    if (VarGet(VAR_RESET_RTC_ENABLE) != 0x0920)
-        return FALSE;
     return TRUE;
+    // if (!FlagGet(FLAG_SYS_RESET_RTC_ENABLE))
+    //     return FALSE;
+    // if (VarGet(VAR_RESET_RTC_ENABLE) != 0x0920)
+    //     return FALSE;
+    // return TRUE;
 }
 
 u16 *GetVarPointer(u16 idx)
@@ -210,6 +219,10 @@ u16 *GetVarPointer(u16 idx)
         }
         return &gSaveBlock1Ptr->vars[idx - VARS_START];
     }
+#if TESTING
+    else if (idx >= TESTING_VARS_START)
+        return &sTestVars[idx - TESTING_VARS_START];
+#endif // TESTING
     return gSpecialVars[idx - SPECIAL_VARS_START];
 }
 
@@ -240,6 +253,14 @@ u16 VarGet(u16 idx)
     return *ptr;
 }
 
+u16 VarGetIfExist(u16 id)
+{
+    u16 *ptr = GetVarPointer(id);
+    if (!ptr)
+        return 65535;
+    return *ptr;
+}
+
 bool8 VarSet(u16 idx, u16 val)
 {
     u16 *ptr = GetVarPointer(idx);
@@ -249,7 +270,7 @@ bool8 VarSet(u16 idx, u16 val)
     return TRUE;
 }
 
-u8 VarGetObjectEventGraphicsId(u8 idx)
+u16 VarGetObjectEventGraphicsId(u8 idx)
 {
     return VarGet(VAR_OBJ_GFX_ID_0 + idx);
 }
@@ -281,6 +302,10 @@ u8 *GetFlagAddr(u16 idx)
         }
         return &gSaveBlock1Ptr->flags[idx / 8];
     }
+#if TESTING
+    else if (idx >= TESTING_FLAGS_START)
+        return &sTestFlags[(idx - TESTING_FLAGS_START) / 8];
+#endif // TESTING
     return &sSpecialFlags[(idx - SPECIAL_FLAGS_START) / 8];
 }
 
@@ -289,6 +314,14 @@ bool8 FlagSet(u16 idx)
     u8 *ptr = GetFlagAddr(idx);
     if (ptr != NULL)
         *ptr |= 1 << (idx & 7);
+    return FALSE;
+}
+
+u8 FlagToggle(u16 id)
+{
+    u8 *ptr = GetFlagAddr(id);
+    if (ptr)
+        *ptr ^= 1 << (id & 7);
     return FALSE;
 }
 

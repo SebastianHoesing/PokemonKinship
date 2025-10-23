@@ -1,3 +1,3 @@
 	.include "constants/gba_constants.inc"
-	.include "constants/misc_constants.inc"
-	.include "constants/version.inc"
+	.include "constants/global.inc"
+	.include "constants/tms_hms.inc"

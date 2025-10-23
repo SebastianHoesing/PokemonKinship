@@ -7,12 +7,10 @@
 #include "mail.h"
 #include "task.h"
 #include "menu.h"
-#include "mail_data.h"
 #include "player_pc.h"
 #include "overworld.h"
 #include "help_system.h"
 #include "menu_helpers.h"
-#include "new_menu_helpers.h"
 #include "graphics.h"
 #include "pokemon_icon.h"
 #include "string_util.h"
@@ -592,16 +590,16 @@ static bool8 DoInitMailView(void)
         gPaletteFade.bufferTransferDisabled = TRUE;
         break;
     case 17:
-        iconId = MailSpeciesToIconSpecies(sMailViewResources->mail->species);
+        iconId = GetIconSpeciesNoPersonality(sMailViewResources->mail->species);
         switch (sMailViewResources->monIconType)
         {
         case MAIL_ICON_BEAD:
             LoadMonIconPalette(iconId);
-            sMailViewResources->monIconSpriteId = CreateMonIcon_HandleDeoxys(iconId, SpriteCallbackDummy, 0x60, 0x80, 0, FALSE);
+            sMailViewResources->monIconSpriteId = CreateMonIconNoPersonality(iconId, SpriteCallbackDummy, 0x60, 0x80, 0);
             break;
         case MAIL_ICON_DREAM:
             LoadMonIconPalette(iconId);
-            sMailViewResources->monIconSpriteId = CreateMonIcon_HandleDeoxys(iconId, SpriteCallbackDummy, 0x28, 0x80, 0, FALSE);
+            sMailViewResources->monIconSpriteId = CreateMonIconNoPersonality(iconId, SpriteCallbackDummy, 0x28, 0x80, 0);
             break;
         }
         break;
@@ -722,8 +720,8 @@ static void ShowMailCB_Teardown(void)
         {
         case MAIL_ICON_BEAD:
         case MAIL_ICON_DREAM:
-            FreeMonIconPalette(MailSpeciesToIconSpecies(sMailViewResources->mail->species));
-            DestroyMonIcon(&gSprites[sMailViewResources->monIconSpriteId]);
+            FreeMonIconPalette(GetIconSpeciesNoPersonality(sMailViewResources->mail->species));
+            FreeAndDestroyMonIconSprite(&gSprites[sMailViewResources->monIconSpriteId]);
             break;
         }
         *sMailViewResources = (struct MailViewResources){};

@@ -1,8 +1,11 @@
 #include "global.h"
-#include "gflib.h"
-#include "text_window_graphics.h"
+
+#include "dma3.h"
+
 #include "mon_markings.h"
 #include "graphics.h"
+#include "sound.h"
+#include "text_window.h"
 #include "constants/songs.h"
 
 #define ANIM_CURSOR (NUM_MON_MARKINGS * 2)
@@ -290,9 +293,9 @@ void InitMonMarkingsMenu(struct MonMarkingsMenu *ptr)
 
 static void BufferMenuWindowTiles(void)
 {
-    const struct TextWindowGraphics *frame = GetUserWindowGraphics(gSaveBlock2Ptr->optionsWindowFrameType);
+    const struct TilesPal *frame = GetWindowFrameTilesPal(gSaveBlock2Ptr->optionsWindowFrameType);
     sMenu->frameTiles = frame->tiles;
-    sMenu->framePalette = frame->palette;
+    sMenu->framePalette = frame->pal;
     sMenu->tileLoadState = 0;
     CpuFill16(0, sMenu->windowSpriteTiles, sizeof(sMenu->windowSpriteTiles));
 }

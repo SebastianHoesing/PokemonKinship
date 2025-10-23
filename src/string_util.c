@@ -1,11 +1,14 @@
 #include "global.h"
-#include "gflib.h"
+#include "string_util.h"
+#include "text.h"
+#include "strings.h"
+#include "union_room_chat.h"
 
-EWRAM_DATA u8 gStringVar1[32] = {};
-EWRAM_DATA u8 gStringVar2[20] = {};
-EWRAM_DATA u8 gStringVar3[20] = {};
+EWRAM_DATA u8 gStringVar1[256] = {};
+EWRAM_DATA u8 gStringVar2[256] = {};
+EWRAM_DATA u8 gStringVar3[256] = {};
 EWRAM_DATA u8 gStringVar4[1000] = {};
-EWRAM_DATA u8 gUnknownStringVar[16] = {0};
+EWRAM_DATA static u8 gUnknownStringVar[16] = {0};
 
 static const u8 sDigits[] = __("0123456789ABCDEF");
 
@@ -23,7 +26,7 @@ static const s32 sPowersOfTen[] =
     1000000000,
 };
 
-extern u8 gExpandedPlaceholder_Empty[];
+extern const u8 gExpandedPlaceholder_Empty[];
 extern u8 gExpandedPlaceholder_Kun[];
 extern u8 gExpandedPlaceholder_Chan[];
 extern u8 gExpandedPlaceholder_Sapphire[];
@@ -129,6 +132,28 @@ u16 StringLength(const u8 *str)
 
     while (str[length] != EOS)
         length++;
+
+    return length;
+}
+
+u16 StringLineLength(const u8 *str)
+{
+    u16 i = 0, length = 0;
+
+    while (str[length] != EOS)
+    {
+        switch (str[length])
+        {
+        case CHAR_PROMPT_SCROLL:
+        case CHAR_PROMPT_CLEAR:
+        case CHAR_NEWLINE:
+            return length;
+        default:
+            i++;
+            length++;
+            break;
+        }
+    }
 
     return length;
 }
@@ -283,7 +308,7 @@ u8 *StringExpandPlaceholders(u8 *dest, const u8 *src)
     {
         u8 c = *src++;
         u8 placeholderId;
-        u8 *expandedString;
+        const u8 *expandedString;
 
         switch (c)
         {
@@ -465,7 +490,7 @@ static u8 *ExpandPlaceholder_Kyogre(void)
 #endif
 }
 
-u8 *GetExpandedPlaceholder(u32 id)
+const u8 *GetExpandedPlaceholder(u32 id)
 {
     typedef u8 *(*ExpandPlaceholderFunc)(void);
 
@@ -599,31 +624,31 @@ u8 GetExtCtrlCodeLength(u8 code)
 {
     static const u8 lengths[] =
     {
-        1,
-        2,
-        2,
-        2,
-        4,
-        2,
-        2,
-        1,
-        2,
-        1,
-        1,
-        3,
-        2,
-        2,
-        2,
-        1,
-        3,
-        2,
-        2,
-        2,
-        2,
-        1,
-        1,
-        1,
-        1,
+        [0]                                    = 1,
+        [EXT_CTRL_CODE_COLOR]                  = 2,
+        [EXT_CTRL_CODE_HIGHLIGHT]              = 2,
+        [EXT_CTRL_CODE_SHADOW]                 = 2,
+        [EXT_CTRL_CODE_COLOR_HIGHLIGHT_SHADOW] = 4,
+        [EXT_CTRL_CODE_PALETTE]                = 2,
+        [EXT_CTRL_CODE_FONT]                   = 2,
+        [EXT_CTRL_CODE_RESET_FONT]             = 1,
+        [EXT_CTRL_CODE_PAUSE]                  = 2,
+        [EXT_CTRL_CODE_PAUSE_UNTIL_PRESS]      = 1,
+        [EXT_CTRL_CODE_WAIT_SE]                = 1,
+        [EXT_CTRL_CODE_PLAY_BGM]               = 3,
+        [EXT_CTRL_CODE_ESCAPE]                 = 2,
+        [EXT_CTRL_CODE_SHIFT_RIGHT]            = 2,
+        [EXT_CTRL_CODE_SHIFT_DOWN]             = 2,
+        [EXT_CTRL_CODE_FILL_WINDOW]            = 1,
+        [EXT_CTRL_CODE_PLAY_SE]                = 3,
+        [EXT_CTRL_CODE_CLEAR]                  = 2,
+        [EXT_CTRL_CODE_SKIP]                   = 2,
+        [EXT_CTRL_CODE_CLEAR_TO]               = 2,
+        [EXT_CTRL_CODE_MIN_LETTER_SPACING]     = 2,
+        [EXT_CTRL_CODE_JPN]                    = 1,
+        [EXT_CTRL_CODE_ENG]                    = 1,
+        [EXT_CTRL_CODE_PAUSE_MUSIC]            = 1,
+        [EXT_CTRL_CODE_RESUME_MUSIC]           = 1,
     };
 
     u8 length = 0;

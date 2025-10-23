@@ -74,7 +74,10 @@ static void WarpFadeInScreenWithDelay(void)
     {
     case FALSE:
         palette_bg_faded_fill_black();
-        FadeScreen(FADE_FROM_BLACK, 3);
+        // delay changed from 3 to 4
+        // fixes DNS palette issue
+        // e.g. fat man in pallet town
+        FadeScreen(FADE_FROM_BLACK, 4);
         palette_bg_faded_fill_black();
         break;
     case TRUE:
@@ -108,19 +111,6 @@ void WarpFadeOutScreen(void)
             FadeScreen(FADE_TO_WHITE, 0);
             break;
         }
-    }
-}
-
-static void WarpFadeOutScreenWithDelay(void) // Unused
-{
-    switch (MapTransitionIsEnter(GetCurrentMapType(), GetDestinationWarpMapHeader()->mapType))
-    {
-    case FALSE:
-        FadeScreen(FADE_TO_BLACK, 3);
-        break;
-    case TRUE:
-        FadeScreen(FADE_TO_WHITE, 3);
-        break;
     }
 }
 
@@ -364,7 +354,7 @@ static void Task_ExitDoor(u8 taskId)
         }
         break;
     case 9:
-        if (FieldFadeTransitionBackgroundEffectIsFinished() && walkrun_is_standing_still() && !FieldIsDoorAnimationRunning() && !FuncIsActiveTask(Task_BarnDoorWipe))
+        if (FieldFadeTransitionBackgroundEffectIsFinished() && IsPlayerStandingStill() && !FieldIsDoorAnimationRunning() && !FuncIsActiveTask(Task_BarnDoorWipe))
         {
             ObjectEventClearHeldMovementIfFinished(&gObjectEvents[GetObjectEventIdByLocalIdAndMap(LOCALID_PLAYER, 0, 0)]);
             task->data[0] = 4;
@@ -380,7 +370,7 @@ static void Task_ExitDoor(u8 taskId)
         }
         break;
     case 2:
-        if (walkrun_is_standing_still())
+        if (IsPlayerStandingStill())
         {
             task->data[1] = FieldAnimateDoorClose(*x, *y);
             ObjectEventClearHeldMovementIfFinished(&gObjectEvents[GetObjectEventIdByLocalIdAndMap(LOCALID_PLAYER, 0, 0)]);
@@ -422,7 +412,7 @@ static void Task_ExitNonAnimDoor(u8 taskId)
         }
         break;
     case 2:
-        if (walkrun_is_standing_still())
+        if (IsPlayerStandingStill())
         {
             task->data[0] = 3;
         }
@@ -611,14 +601,6 @@ void DoTeleportWarp(void)
     gFieldCallback = FieldCB_TeleportWarpIn;
 }
 
-static void DoPortholeWarp(void) // Unused
-{
-    LockPlayerFieldControls();
-    WarpFadeOutScreen();
-    CreateTask(Task_Teleport2Warp, 10);
-    gFieldCallback = FieldCB_ShowPortholeView;
-}
-
 static void Task_CableClubWarp(u8 taskId)
 {
     struct Task *task = &gTasks[taskId];
@@ -742,12 +724,20 @@ static void Task_DoorWarp(u8 taskId)
     struct Task *task = &gTasks[taskId];
     s16 *xp = &task->data[2];
     s16 *yp = &task->data[3];
+    struct ObjectEvent *followerObject = GetFollowerObject();
+
     switch (task->data[0])
     {
     case 0:
         FreezeObjectEvents();
         PlayerGetDestCoords(xp, yp);
         PlaySE(GetDoorSoundEffect(*xp, *yp - 1));
+        if (followerObject)
+        {
+            // Put follower into pokeball
+            ClearObjectEventMovement(followerObject, &gSprites[followerObject->spriteId]);
+            ObjectEventSetHeldMovement(followerObject, MOVEMENT_ACTION_ENTER_POKEBALL);
+        }
         task->data[1] = FieldAnimateDoorOpen(*xp, *yp - 1);
         task->data[0] = 1;
         break;
@@ -760,7 +750,7 @@ static void Task_DoorWarp(u8 taskId)
         }
         break;
     case 2:
-        if (walkrun_is_standing_still())
+        if (IsPlayerStandingStill())
         {
             task->data[1] = FieldAnimateDoorClose(*xp, *yp - 1);
             ObjectEventClearHeldMovementIfFinished(&gObjectEvents[GetObjectEventIdByLocalIdAndMap(LOCALID_PLAYER, 0, 0)]);

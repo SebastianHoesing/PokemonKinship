@@ -2,7 +2,6 @@
 #include "gflib.h"
 #include "party_menu.h"
 #include "menu.h"
-#include "new_menu_helpers.h"
 #include "constants/songs.h"
 
 static void Task_SoftboiledRestoreHealth(u8 taskId);
@@ -13,7 +12,7 @@ static void CantUseSoftboiledOnMon(u8 taskId);
 extern const u8 gText_CantBeUsedOnPkmn[];
 extern const u8 gText_PkmnHPRestoredByVar2[];
 
-bool8 SetUpFieldMove_SoftBoiled(void)
+bool32 FieldMove_SetUpSoftBoiled(void)
 {
     u16 maxHp = GetMonData(&gPlayerParty[GetCursorSelectionMonId()], MON_DATA_MAX_HP);
     u16 curHp = GetMonData(&gPlayerParty[GetCursorSelectionMonId()], MON_DATA_HP);

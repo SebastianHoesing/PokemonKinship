@@ -1,26 +1,32 @@
 #ifndef GUARD_TEXT_WINDOW_H
 #define GUARD_TEXT_WINDOW_H
 
-#include "global.h"
+#define WINDOW_FRAMES_COUNT 10
 
 struct TilesPal
 {
-    u32 *tiles;
-    u16 *pal;
+    const u8 *tiles;
+    const u16 *pal;
 };
 
+extern const u8 gTextWindowFrame1_Gfx[];
+extern const u16 gTextWindowFrame1_Pal[];
+
+const struct TilesPal *GetWindowFrameTilesPal(u8 id);
+void LoadWindowGfx(u8 windowId, u8 frameType, u16 destOffset, u8 palOffset);
 void rbox_fill_rectangle(u8 windowId);
 const u16 *GetTextWindowPalette(u8 id);
 const u16 *GetOverworldTextboxPalettePtr(void);
-void LoadMenuMessageWindowGfx(u8 windowId, u16 tileStart, u8 palette);
+void LoadMessageBoxGfx(u8 windowId, u16 tileStart, u8 palette);
 void LoadStdWindowGfx(u8 windowId, u16 tileStart, u8 palette);
-void LoadUserWindowGfx(u8 windowId, u16 tileStart, u8 palette);
-void LoadUserWindowGfx2(u8 windowId, u16 tileStart, u8 palette);
+void LoadUserWindowBorderGfx(u8 windowId, u16 tileStart, u8 palette);
+void LoadUserWindowBorderGfx_(u8 windowId, u16 tileStart, u8 palette);
 void LoadStdWindowGfxOnBg(u8 bgId, u16 tileStart, u8 palette);
 void DrawTextBorderOuter(u8 windowId, u16 tileStart, u8 palette);
 void DrawTextBorderInner(u8 windowId, u16 tileNum, u8 palNum);
 void LoadHelpMessageWindowGfx(u8 windowId, u16 destOffset, u8 palIdx);
-void LoadSignpostWindowGfx(u8 windowId, u16 destOffset, u8 palIdx);
+void LoadSignBoxGfx(u8 windowId, u16 destOffset, u8 palIdx);
+void LoadDexNavWindowGfx(u8 windowId, u16 destOffset, u8 palOffset);
 void LoadStdWindowTiles(u8 windowId, u16 destOffset);
 void LoadQuestLogWindowTiles(u8 windowId, u16 destOffset);
 

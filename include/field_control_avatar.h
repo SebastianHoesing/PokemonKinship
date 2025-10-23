@@ -27,6 +27,7 @@ void RestartWildEncounterImmunitySteps(void);
 void ClearPoisonStepCounter(void);
 int SetCableClubWarp(void);
 void HandleBoulderFallThroughHole(struct ObjectEvent *);
+void GetInFrontOfPlayerPosition(struct MapPosition * position);
 bool8 dive_warp(struct MapPosition * pos, u16 behavior);
 bool8 IsDirectionalStairWarpMetatileBehavior(u16 metatileBehavior, u8 playerDirection);
 const u8 *GetInteractedLinkPlayerScript(struct MapPosition *position, u8 metatileBehavior, u8 direction);
@@ -36,5 +37,6 @@ int ProcessPlayerFieldInput(struct FieldInput *input);
 void FieldInput_HandleCancelSignpost(struct FieldInput * input);
 void FieldGetPlayerInput(struct FieldInput *input, u16 newKeys, u16 heldKeys);
 void HandleBoulderActivateVictoryRoadSwitch(u16 x, u16 y);
+const u8 *GetObjectEventScriptPointerPlayerFacing(void);
 
 #endif //GUARD_FIELD_CONTROL_AVATAR_H

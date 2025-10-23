@@ -5,7 +5,6 @@
 #include "easy_chat.h"
 #include "graphics.h"
 #include "menu.h"
-#include "new_menu_helpers.h"
 #include "strings.h"
 #include "text_window.h"
 
@@ -1363,7 +1362,7 @@ static void EC_AddTextPrinterParameterized2(u8 windowId, u8 fontId, const u8 *st
 static void PrintECInstructionsText(void)
 {
     FillBgTilemapBufferRect(0, 0, 0, 0, 32, 20, 17);
-    LoadUserWindowGfx(1, 1, BG_PLTT_ID(14));
+    LoadUserWindowBorderGfx(1, 1, BG_PLTT_ID(14));
     DrawTextBorderOuter(1, 1, 14);
     PrintECInterfaceTextById(0);
     PutWindowTilemap(1);
@@ -1402,7 +1401,7 @@ static void PrintECInterfaceTextById(u8 direction)
 
 static void EC_CreateYesNoMenuWithInitialCursorPos(u8 initialCursorPos)
 {
-    CreateYesNoMenu(&sEasyChatYesNoWindowTemplate, FONT_NORMAL_COPY_1, 0, 2, 0x001, 14, initialCursorPos);
+    CreateYesNoMenuAtPos(&sEasyChatYesNoWindowTemplate, FONT_NORMAL_COPY_1, 0, 2, 0x001, 14, initialCursorPos);
 }
 
 static void CreatePhraseFrameWindow(void)
@@ -1650,7 +1649,6 @@ static void PrintECRowsWin2(u8 row, u8 remrow)
 {
     int i, j;
     u16 easyChatWord;
-    u8 *str;
     int y;
     u8 y_;
     int ecWordIdx;

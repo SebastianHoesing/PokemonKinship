@@ -1,3 +1,4 @@
+#include "constants/berry.h"
 #include "constants/event_bg.h"
 #include "constants/event_object_movement.h"
 #include "constants/event_objects.h"
@@ -6,6 +7,7 @@
 #include "constants/map_scripts.h"
 #include "constants/layouts.h"
 #include "constants/maps.h"
+#include "constants/species.h"
 #include "constants/trainer_types.h"
 #include "constants/vars.h"
 #include "constants/weather.h"

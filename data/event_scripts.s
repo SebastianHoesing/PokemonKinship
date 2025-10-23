@@ -1,8 +1,14 @@
+#include "config/general.h"
+#include "config/battle.h"
 #include "constants/global.h"
 #include "constants/flags.h"
+#include "constants/battle_tower.h"
+#include "constants/berry.h"
 #include "constants/event_objects.h"
 #include "constants/event_object_movement.h"
+#include "constants/field_move.h"
 #include "constants/decorations.h"
+#include "constants/item.h"
 #include "constants/items.h"
 #include "constants/layouts.h"
 #include "constants/maps.h"
@@ -40,11 +46,11 @@
 #include "constants/mystery_gift.h"
 	.include "asm/macros.inc"
 	.include "asm/macros/event.inc"
-	.set FALSE, 0
-	.set TRUE,  1
+	.include "constants/constants.inc"
 
 	.section script_data, "aw", %progbits
 
+	.set ALLOCATE_SCRIPT_CMD_TABLE, 1
 	.include "data/script_cmd_table.inc"
 
 	.align 2
@@ -806,6 +812,9 @@ gStdScriptsEnd::
 
 	.include "data/scripts/std_msgbox.inc"
 	.include "data/scripts/trainer_battle.inc"
+	
+	.include "data/scripts/config.inc"
+	.include "data/scripts/debug.inc"
 
 @ Unused
 Text_WouldYouLikeToMixRecords::
@@ -854,7 +863,7 @@ Text_MakingPreparations::
 Text_WantWhichFloor::
 	.string "Which floor do you want?$"
 
-Text_BagItemCanBeRegistered::
+gText_SelectWithoutRegisteredItem::
 	.string "An item in the BAG can be\n"
 	.string "registered to SELECT for easy use.$"
 
@@ -880,10 +889,6 @@ Text_LinkWasCanceled::
 Text_GiveNicknameToReceivedMon::
 	.string "Want to give a nickname to the\n"
 	.string "{STR_VAR_2} you received?$"
-
-gText_PkmnFainted3::
-	.string "{STR_VAR_1} fainted…\p"
-	.string "$"
 
 Text_WelcomeWantToHealPkmn::
 	.string "Welcome to our POKéMON CENTER!\p"
@@ -1085,11 +1090,12 @@ EventScript_GymBadgeFanfare::
 	return
 
 EventScript_OutOfCenterPartyHeal::
-	fadescreen FADE_TO_BLACK
+	fadescreenswapbuffers FADE_TO_BLACK
 	playfanfare MUS_HEAL
 	waitfanfare
 	special HealPlayerParty
-	fadescreen FADE_FROM_BLACK
+	callnative UpdateFollowingPokemon
+	fadescreenswapbuffers FADE_FROM_BLACK
 	return
 
 EventScript_WallTownMap::
@@ -1127,8 +1133,8 @@ EventScript_HandOverItem::
 	.include "data/scripts/flavor_text.inc"
 	.include "data/scripts/questionnaire.inc"
 
-EventScript_BagItemCanBeRegistered::
-	msgbox Text_BagItemCanBeRegistered, MSGBOX_SIGN
+EventScript_SelectWithoutRegisteredItem::
+	msgbox gText_SelectWithoutRegisteredItem, MSGBOX_SIGN
 	end
 
 EventScript_Return::
@@ -1194,6 +1200,7 @@ EventScript_DelayedLookAround::
 
 	.include "data/scripts/silphco_doors.inc"
 	.include "data/scripts/pc_transfer.inc"
+	.include "data/scripts/berry_tree.inc"
 
 EventScript_GetInGameTradeSpeciesInfo::
 	copyvar VAR_0x8004, VAR_0x8008
@@ -1276,8 +1283,8 @@ EventScript_BufferPutAwayPocketName::
 	case POCKET_ITEMS,       EventScript_BufferPutAwayPocketItems
 	case POCKET_KEY_ITEMS,   EventScript_BufferPutAwayPocketKeyItems
 	case POCKET_POKE_BALLS,  EventScript_BufferPutAwayPocketPokeBalls
-	case POCKET_TM_CASE,     EventScript_BufferPutAwayPocketTMCase
-	case POCKET_BERRY_POUCH, EventScript_BufferPutAwayPocketBerryPouch
+	case POCKET_TM_HM,     EventScript_BufferPutAwayPocketTMCase
+	case POCKET_BERRIES, EventScript_BufferPutAwayPocketBerryPouch
 	end
 
 EventScript_BufferPutAwayPocketItems::
@@ -1360,3 +1367,5 @@ Text_TestMsg::
 	.include "data/text/save.inc"
 	.include "data/text/new_game_intro.inc"
 	.include "data/text/pokedude.inc"
+	.include "data/scripts/follower.inc"
+	.include "data/scripts/dexnav.inc"

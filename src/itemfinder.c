@@ -1,15 +1,15 @@
 #include "global.h"
 #include "gflib.h"
-#include "task.h"
-#include "new_menu_helpers.h"
-#include "strings.h"
-#include "event_scripts.h"
-#include "event_object_lock.h"
-#include "script.h"
 #include "event_data.h"
+#include "event_object_lock.h"
+#include "event_scripts.h"
 #include "field_player_avatar.h"
 #include "field_specials.h"
 #include "fieldmap.h"
+#include "menu.h"
+#include "script.h"
+#include "strings.h"
+#include "task.h"
 #include "constants/songs.h"
 
 static void Task_NoResponse_CleanUp(u8 taskId);
@@ -594,7 +594,6 @@ static void CreateArrowSprite(u8 animNum, u8 direction)
 
 static void SpriteCallback_Arrow(struct Sprite *sprite)
 {
-    s16 x, y;
     sprite->spCurX += sprite->spDeltaX;
     sprite->spCurY += sprite->spDeltaY;
     sprite->x = sprite->spCenterX + (sprite->spCurX >> 8);
@@ -631,7 +630,6 @@ static u8 CreateStarSprite(void)
 
 static void SpriteCallback_Star(struct Sprite *sprite)
 {
-    s16 x, y;
     sprite->spCurX += sprite->spDeltaX;
     sprite->spCurY += sprite->spDeltaY;
     sprite->x = sprite->spCenterX + (sprite->spCurX >> 8);

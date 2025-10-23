@@ -1,11 +1,13 @@
 #include "global.h"
+#include "berry.h"
 #include "gflib.h"
 #include "field_camera.h"
 #include "field_player_avatar.h"
 #include "fieldmap.h"
 #include "event_object_movement.h"
-#include "new_menu_helpers.h"
+#include "menu.h"
 #include "overworld.h"
+#include "task.h"
 
 EWRAM_DATA bool8 gBikeCameraAheadPanback = FALSE;
 
@@ -230,10 +232,10 @@ static void DrawMetatileAt(const struct MapLayout *mapLayout, u16 offset, int x,
     if (metatileId > NUM_METATILES_TOTAL)
         metatileId = 0;
     if (metatileId < NUM_METATILES_IN_PRIMARY)
-        metatiles = mapLayout->primaryTileset->metatiles;
+        metatiles = GetPrimaryTileset(mapLayout)->metatiles;
     else
     {
-        metatiles = mapLayout->secondaryTileset->metatiles;
+        metatiles = GetSecondaryTileset(mapLayout)->metatiles;
         metatileId -= NUM_METATILES_IN_PRIMARY;
     }
     DrawMetatile(MapGridGetMetatileLayerTypeAt(x, y), metatiles + metatileId * NUM_TILES_PER_METATILE, offset);
@@ -413,6 +415,7 @@ void CameraUpdate(void)
         UpdateObjectEventsForCameraUpdate(deltaX, deltaY);
         // RotatingGatePuzzleCameraUpdate(deltaX, deltaY);
         // ResetBerryTreeSparkleFlags();
+        SetBerryTreesSeen();
         tilemap_move_something(&sFieldCameraOffset, deltaX * 2, deltaY * 2);
         RedrawMapSlicesForCameraUpdate(&sFieldCameraOffset, deltaX * 2, deltaY * 2);
     }

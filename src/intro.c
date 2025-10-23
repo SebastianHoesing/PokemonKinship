@@ -4,7 +4,6 @@
 #include "task.h"
 #include "scanline_effect.h"
 #include "libgcnmultiboot.h"
-#include "new_menu_helpers.h"
 #include "link.h"
 #include "menu.h"
 #include "random.h"
@@ -14,6 +13,7 @@
 #include "decompress.h"
 #include "util.h"
 #include "trig.h"
+#include "load_save.h"
 #include "constants/songs.h"
 #include "constants/sound.h"
 
@@ -247,15 +247,15 @@ extern const u32 gMultiBootProgram_PokemonColosseum_Start[];
 extern const u32 gMultiBootProgram_PokemonColosseum_End[];
 
 static const u16 sCopyright_Pal[] = INCBIN_U16("graphics/intro/copyright.gbapal");
-static const u8 sCopyright_Gfx[]  = INCBIN_U8( "graphics/intro/copyright.4bpp.lz");
-static const u8 sCopyright_Map[]  = INCBIN_U8( "graphics/intro/copyright.bin.lz");
+static const u32 sCopyright_Gfx[]  = INCBIN_U32( "graphics/intro/copyright.4bpp.lz");
+static const u32 sCopyright_Map[]  = INCBIN_U32( "graphics/intro/copyright.bin.lz");
 
 // Game Freak
 static const u16 sGameFreakBg_Pal[]   = INCBIN_U16("graphics/intro/game_freak/bg.gbapal");
 static const u8 sGameFreakBg_Gfx[]    = INCBIN_U8( "graphics/intro/game_freak/bg.4bpp.lz");
 static const u8 sGameFreakBg_Map[]    = INCBIN_U8( "graphics/intro/game_freak/bg.bin.lz");
 static const u16 sGameFreakLogo_Pal[] = INCBIN_U16("graphics/intro/game_freak/logo.gbapal");
-static const u8 sGameFreakText_Gfx[]  = INCBIN_U8( "graphics/intro/game_freak/game_freak.4bpp.lz");
+static const u32 sGameFreakText_Gfx[] = INCBIN_U32( "graphics/intro/game_freak/game_freak.4bpp.lz");
 static const u32 sGameFreakLogo_Gfx[] = INCBIN_U32("graphics/intro/game_freak/logo.4bpp.lz");
 static const u16 sStar_Pal[]          = INCBIN_U16("graphics/intro/game_freak/star.gbapal");
 static const u32 sStar_Gfx[]          = INCBIN_U32("graphics/intro/game_freak/star.4bpp.lz");
@@ -903,8 +903,8 @@ static void CB2_WaitFadeBeforeSetUpIntro(void)
 
 static void LoadCopyrightGraphics(u16 charBase, u16 screenBase, u16 palOffset)
 {
-    LZ77UnCompVram(sCopyright_Gfx, (void *)BG_VRAM + charBase);
-    LZ77UnCompVram(sCopyright_Map, (void *)BG_VRAM + screenBase);
+    DecompressDataWithHeaderVram(sCopyright_Gfx, (void *)BG_VRAM + charBase);
+    DecompressDataWithHeaderVram(sCopyright_Map, (void *)BG_VRAM + screenBase);
     LoadPalette(sCopyright_Pal, palOffset, sizeof(sCopyright_Pal));
 }
 
@@ -992,12 +992,15 @@ void CB2_InitCopyrightScreenAfterBootup(void)
 {
     if (!SetUpCopyrightScreen())
     {
+        SeedRngAndSetTrainerId();
+        SetSaveBlocksPointers(GetSaveBlocksPointersBaseOffset());
         ResetMenuAndMonGlobals();
         Save_ResetSaveCounters();
         LoadGameSave(SAVE_NORMAL);
         if (gSaveFileStatus == SAVE_STATUS_EMPTY || gSaveFileStatus == SAVE_STATUS_INVALID)
             Sav2_ClearSetDefault();
         SetPokemonCryStereo(gSaveBlock2Ptr->optionsSound);
+        InitHeap(gHeap, HEAP_SIZE);
     }
 }
 
@@ -1111,8 +1114,8 @@ static void IntroCB_Init(struct IntroSequenceData * this)
     {
     case 0:
         InitWindows(sWindowTemplates);
-        LZ77UnCompWram(sGameFreakText_Gfx, this->gameFreakTextGfx);
-        LZ77UnCompWram(sGameFreakLogo_Gfx, this->gameFreakLogoGfx);
+        DecompressDataWithHeaderWram(sGameFreakText_Gfx, this->gameFreakTextGfx);
+        DecompressDataWithHeaderWram(sGameFreakLogo_Gfx, this->gameFreakLogoGfx);
         FillBgTilemapBufferRect(BG_GF_TEXT_LOGO, 0x000, 0, 0, 32, 32, 17);
         FillWindowPixelBuffer(WIN_GF_TEXT_LOGO, PIXEL_FILL(0));
         BlitBitmapToWindow(WIN_GF_TEXT_LOGO, this->gameFreakTextGfx, 0, 40, 144, 16);
@@ -1249,9 +1252,7 @@ static void IntroCB_GF_RevealLogo(struct IntroSequenceData * this)
         if (!IsDma3ManagerBusyWithBgCopy())
         {
             DestroySprite(this->gameFreakLogoArtSprite);
-        #if REVISION >= 1
             GFScene_CreatePresentsSprite();
-        #endif
             this->timer = 0;
             this->state++;
         }
@@ -2095,14 +2096,12 @@ static struct Sprite *GFScene_CreateLogoSprite(void)
     return &gSprites[spriteId];
 }
 
-#if REVISION >= 1
 static void GFScene_CreatePresentsSprite(void)
 {
     int i;
     for (i = 0; i < 2; i++)
         gSprites[CreateSprite(&sSpriteTemplate_Presents, 104 + 32 * i, 108, 5)].oam.tileNum += i * 4;
 }
-#endif
 
 #define tState  data[0]
 #define tTimer  data[1]
@@ -2282,9 +2281,9 @@ static void SpriteCB_Star(struct Sprite *sprite)
     sprite->sStar_SparkleTimer++;
     if (sprite->sStar_SparkleTimer % sStarSparklesSpawnRate)
     {
-        LoadWordFromTwoHalfwords(&sprite->sStar_SparkleRngSeed, &random);
+        LoadWordFromTwoHalfwords((u16*)&sprite->sStar_SparkleRngSeed, &random);
         random = ISO_RANDOMIZE1(random);
-        StoreWordInTwoHalfwords(&sprite->sStar_SparkleRngSeed, random);
+        StoreWordInTwoHalfwords((u16*)&sprite->sStar_SparkleRngSeed, random);
         random >>= 16;
         GFScene_CreateStarSparkle(sprite->x, sprite->y + sprite->y2, random);
     }

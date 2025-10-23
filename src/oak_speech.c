@@ -1,20 +1,24 @@
 #include "global.h"
-#include "gflib.h"
-#include "decompress.h"
-#include "task.h"
-#include "blend_palette.h"
-#include "text_window.h"
-#include "menu.h"
-#include "help_system.h"
-#include "new_menu_helpers.h"
-#include "event_scripts.h"
-#include "scanline_effect.h"
-#include "pokeball.h"
-#include "naming_screen.h"
-#include "math_util.h"
-#include "overworld.h"
-#include "random.h"
+#include "bg.h"
 #include "data.h"
+#include "decompress.h"
+#include "event_scripts.h"
+#include "gpu_regs.h"
+#include "help_system.h"
+#include "malloc.h"
+#include "math_util.h"
+#include "menu.h"
+#include "naming_screen.h"
+#include "overworld.h"
+#include "palette.h"
+#include "pokeball.h"
+#include "random.h"
+#include "scanline_effect.h"
+#include "sound.h"
+#include "string_util.h"
+#include "task.h"
+#include "text_window.h"
+#include "util.h"
 #include "constants/songs.h"
 
 #define INTRO_SPECIES SPECIES_NIDORAN_F
@@ -724,7 +728,7 @@ static void Task_NewGameScene(u8 taskId)
         break;
     case 1:
         sOakSpeechResources = AllocZeroed(sizeof(*sOakSpeechResources));
-        CreateMonSpritesGfxManager(1, 1);
+        CreateMonSpritesGfxManager(MON_SPR_GFX_MANAGER_A, MON_SPR_GFX_MODE_NORMAL);
         break;
     case 2:
         SetGpuReg(REG_OFFSET_WIN0H, 0);
@@ -758,7 +762,7 @@ static void Task_NewGameScene(u8 taskId)
         LoadPalette(GetTextWindowPalette(2) + 15, BG_PLTT_ID(0), PLTT_SIZEOF(1));
         break;
     case 5:
-        sOakSpeechResources->textSpeed = GetTextSpeedSetting();
+        sOakSpeechResources->textSpeed = GetPlayerTextSpeedDelay();
         gTextFlags.canABSpeedUpPrint = TRUE;
         DecompressAndCopyTileDataToVram(1, sControlsGuide_PikachuIntro_Background_Tiles, 0, 0, 0);
         break;
@@ -770,7 +774,7 @@ static void Task_NewGameScene(u8 taskId)
         CopyBgTilemapBufferToVram(1);
         break;
     case 7:
-        CreateTopBarWindowLoadPalette(0, 30, 0, 13, 0x1C4);
+        HofPCTopBar_AddWindow(0, 30, 0, 13, 0x1C4);
         FillBgTilemapBufferRect_Palette0(1, 0xD00F, 0,  0, 30, 2);
         FillBgTilemapBufferRect_Palette0(1, 0xD002, 0,  2, 30, 1);
         FillBgTilemapBufferRect_Palette0(1, 0xD00E, 0, 19, 30, 1);
@@ -796,7 +800,7 @@ static void Task_NewGameScene(u8 taskId)
 
 static void ControlsGuide_LoadPage1(void)
 {
-    TopBarWindowPrintTwoStrings(gText_Controls, gText_ABUTTONNext, FALSE, 0, TRUE);
+    HofPCTopBar_PrintPair(gText_Controls, gText_ABUTTONNext, FALSE, 0, TRUE);
     sOakSpeechResources->windowIds[0] = AddWindow(sControlsGuide_WindowTemplates[sOakSpeechResources->currentPage]);
     PutWindowTilemap(sOakSpeechResources->windowIds[0]);
     FillWindowPixelBuffer(sOakSpeechResources->windowIds[0], PIXEL_FILL(0));
@@ -816,7 +820,7 @@ static void Task_ControlsGuide_LoadPage(u8 taskId)
     }
     else
     {
-        TopBarWindowPrintString(gText_ABUTTONNext_BBUTTONBack, 0, TRUE);
+        HofPCTopBar_Print(gText_ABUTTONNext_BBUTTONBack, 0, TRUE);
         for (currWindow = CONTROLS_GUIDE_PAGES_2_3_WINDOW_TOP; currWindow < NUM_CONTROLS_GUIDE_PAGES_2_3_WINDOWS; currWindow++)
         {
             sOakSpeechResources->windowIds[currWindow] = AddWindow(&sControlsGuide_WindowTemplates[sOakSpeechResources->currentPage][currWindow]);
@@ -950,9 +954,9 @@ static void Task_PikachuIntro_LoadPage1(u8 taskId)
     else
     {
         PlayBGM(MUS_NEW_GAME_INTRO);
-        ClearTopBarWindow();
-        TopBarWindowPrintString(gText_ABUTTONNext, 0, 1);
-        sOakSpeechResources->pikachuIntroTilemap = MallocAndDecompress(sPikachuIntro_Background_Tilemap, &size);
+        HofPCTopBar_Clear();
+        HofPCTopBar_Print(gText_ABUTTONNext, 0, 1);
+        sOakSpeechResources->pikachuIntroTilemap = malloc_and_decompress(sPikachuIntro_Background_Tilemap, &size);
         CopyToBgTilemapBufferRect(1, sOakSpeechResources->pikachuIntroTilemap, 0, 2, 30, 19);
         CopyBgTilemapBufferToVram(1);
         Free(sOakSpeechResources->pikachuIntroTilemap);
@@ -1026,13 +1030,13 @@ static void Task_PikachuIntro_HandleInput(u8 taskId)
             AddTextPrinterParameterized4(tTextboxWindowId, FONT_NORMAL, 3, 5, 1, 0, sTextColor_DarkGray, 0, sPikachuIntro_Strings[sOakSpeechResources->currentPage]);
             if (sOakSpeechResources->currentPage == PIKACHU_INTRO_PAGE_1)
             {
-                ClearTopBarWindow();
-                TopBarWindowPrintString(gText_ABUTTONNext, 0, 1);
+                HofPCTopBar_Clear();
+                HofPCTopBar_Print(gText_ABUTTONNext, 0, 1);
             }
             else
             {
-                ClearTopBarWindow();
-                TopBarWindowPrintString(gText_ABUTTONNext_BBUTTONBack, 0, 1);
+                HofPCTopBar_Clear();
+                HofPCTopBar_Print(gText_ABUTTONNext_BBUTTONBack, 0, 1);
             }
             gMain.state++;
         }
@@ -1082,7 +1086,7 @@ static void Task_PikachuIntro_Clear(u8 taskId)
     s16 *data = gTasks[taskId].data;
     if (!gPaletteFade.active)
     {
-        DestroyTopBarWindow();
+        HofPCTopBar_RemoveWindow();
         FillWindowPixelBuffer(tTextboxWindowId, PIXEL_FILL(0));
         ClearWindowTilemap(tTextboxWindowId);
         CopyWindowToVram(tTextboxWindowId, COPYWIN_FULL);
@@ -1106,7 +1110,7 @@ static void Task_OakSpeech_Init(u8 taskId)
     }
     else
     {
-        sOakSpeechResources->oakSpeechBackgroundTiles = MallocAndDecompress(sOakSpeech_Background_Tiles, &size);
+        sOakSpeechResources->oakSpeechBackgroundTiles = malloc_and_decompress(sOakSpeech_Background_Tiles, &size);
         LoadBgTiles(1, sOakSpeechResources->oakSpeechBackgroundTiles, size, 0);
         CopyToBgTilemapBuffer(1, sOakSpeech_Background_Tilemap, 0, 0);
         CopyBgTilemapBufferToVram(1);
@@ -1121,19 +1125,34 @@ static void Task_OakSpeech_Init(u8 taskId)
     }
 }
 
-#define OakSpeechPrintMessage(str, speed) ({                                                                                                                 \
-    DrawDialogueFrame(WIN_INTRO_TEXTBOX, FALSE);                                                                                                             \
-    if (str != gStringVar4)                                                                                                                                  \
-    {                                                                                                                                                        \
-        StringExpandPlaceholders(gStringVar4, str);                                                                                                          \
-        AddTextPrinterParameterized2(WIN_INTRO_TEXTBOX, FONT_MALE, gStringVar4, speed, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY); \
-    }                                                                                                                                                        \
-    else                                                                                                                                                     \
-    {                                                                                                                                                        \
-        AddTextPrinterParameterized2(WIN_INTRO_TEXTBOX, FONT_MALE, str, speed, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);         \
-    }                                                                                                                                                        \
-    CopyWindowToVram(WIN_INTRO_TEXTBOX, COPYWIN_FULL);                                                                                                       \
-})
+static inline void OakSpeechPrintMessage(const u8 *str, u8 speed, bool32 isStringVar4)
+{
+    DrawDialogueFrame(WIN_INTRO_TEXTBOX, FALSE);
+    if (!isStringVar4)
+    {
+        StringExpandPlaceholders(gStringVar4, str);
+        AddTextPrinterParameterized2(WIN_INTRO_TEXTBOX, FONT_MALE, gStringVar4, speed, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
+    }
+    else
+    {
+        AddTextPrinterParameterized2(WIN_INTRO_TEXTBOX, FONT_MALE, str, speed, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
+    }
+    CopyWindowToVram(WIN_INTRO_TEXTBOX, COPYWIN_FULL);
+}
+
+// #define OakSpeechPrintMessage(str, speed) ({                                                                                                                 \
+//     DrawDialogueFrame(WIN_INTRO_TEXTBOX, FALSE);                                                                                                             \
+//     if (str != gStringVar4)                                                                                                                                  \
+//     {                                                                                                                                                        \
+//         StringExpandPlaceholders(gStringVar4, str);                                                                                                          \
+//         AddTextPrinterParameterized2(WIN_INTRO_TEXTBOX, FONT_MALE, gStringVar4, speed, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY); \
+//     }                                                                                                                                                        \
+//     else                                                                                                                                                     \
+//     {                                                                                                                                                        \
+//         AddTextPrinterParameterized2(WIN_INTRO_TEXTBOX, FONT_MALE, str, speed, NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);         \
+//     }                                                                                                                                                        \
+//     CopyWindowToVram(WIN_INTRO_TEXTBOX, COPYWIN_FULL);                                                                                                       \
+// })
 
 static void Task_OakSpeech_WelcomeToTheWorld(u8 taskId)
 {
@@ -1146,7 +1165,7 @@ static void Task_OakSpeech_WelcomeToTheWorld(u8 taskId)
         }
         else
         {
-            OakSpeechPrintMessage(gOakSpeech_Text_WelcomeToTheWorld, sOakSpeechResources->textSpeed);
+            OakSpeechPrintMessage(gOakSpeech_Text_WelcomeToTheWorld, sOakSpeechResources->textSpeed, FALSE);
             gTasks[taskId].func = Task_OakSpeech_ThisWorld;
         }
     }
@@ -1156,7 +1175,7 @@ static void Task_OakSpeech_ThisWorld(u8 taskId)
 {
     if (!IsTextPrinterActive(WIN_INTRO_TEXTBOX))
     {
-        OakSpeechPrintMessage(gOakSpeech_Text_ThisWorld, sOakSpeechResources->textSpeed);
+        OakSpeechPrintMessage(gOakSpeech_Text_ThisWorld, sOakSpeechResources->textSpeed, FALSE);
         gTasks[taskId].tTimer = 30;
         gTasks[taskId].func = Task_OakSpeech_ReleaseNidoranFFromPokeBall;
     }
@@ -1174,7 +1193,7 @@ static void Task_OakSpeech_ReleaseNidoranFFromPokeBall(u8 taskId)
         spriteId = gTasks[taskId].tNidoranFSpriteId;
         gSprites[spriteId].invisible = FALSE;
         gSprites[spriteId].tSpriteTimer = 0;
-        CreatePokeballSpriteToReleaseMon(spriteId, gSprites[spriteId].oam.paletteNum, 100, 66, 0, 0, 32, 0xFFFF1FFF);
+        CreatePokeballSpriteToReleaseMon(spriteId, gSprites[spriteId].oam.paletteNum, 100, 66, 0, 0, 32, 0xFFFF1FFF, INTRO_SPECIES);
         gTasks[taskId].func = Task_OakSpeech_IsInhabitedFarAndWide;
         gTasks[taskId].tTimer = 0;
     }
@@ -1192,7 +1211,7 @@ static void Task_OakSpeech_IsInhabitedFarAndWide(u8 taskId)
         gTasks[taskId].tTimer++;
         if (gTasks[taskId].tTimer == 32)
         {
-            OakSpeechPrintMessage(gOakSpeech_Text_IsInhabitedFarAndWide, sOakSpeechResources->textSpeed);
+            OakSpeechPrintMessage(gOakSpeech_Text_IsInhabitedFarAndWide, sOakSpeechResources->textSpeed, FALSE);
             PlayCry_Normal(INTRO_SPECIES, 0);
         }
     }
@@ -1202,7 +1221,7 @@ static void Task_OakSpeech_IStudyPokemon(u8 taskId)
 {
     if (!IsTextPrinterActive(WIN_INTRO_TEXTBOX))
     {
-        OakSpeechPrintMessage(gOakSpeech_Text_IStudyPokemon, sOakSpeechResources->textSpeed);
+        OakSpeechPrintMessage(gOakSpeech_Text_IStudyPokemon, sOakSpeechResources->textSpeed, FALSE);
         gTasks[taskId].func = Task_OakSpeech_ReturnNidoranFToPokeBall;
     }
 }
@@ -1245,7 +1264,7 @@ static void Task_OakSpeech_TellMeALittleAboutYourself(u8 taskId)
         }
         else
         {
-            OakSpeechPrintMessage(gOakSpeech_Text_TellMeALittleAboutYourself, sOakSpeechResources->textSpeed);
+            OakSpeechPrintMessage(gOakSpeech_Text_TellMeALittleAboutYourself, sOakSpeechResources->textSpeed, FALSE);
             gTasks[taskId].func = Task_OakSpeech_FadeOutOak;
         }
     }
@@ -1278,7 +1297,7 @@ static void Task_OakSpeech_AskPlayerGender(u8 taskId)
         {
             tTrainerPicPosX = -60;
             ClearTrainerPic();
-            OakSpeechPrintMessage(gOakSpeech_Text_AskPlayerGender, sOakSpeechResources->textSpeed);
+            OakSpeechPrintMessage(gOakSpeech_Text_AskPlayerGender, sOakSpeechResources->textSpeed, FALSE);
             gTasks[taskId].func = Task_OakSpeech_ShowGenderOptions;
         }
     }
@@ -1290,7 +1309,7 @@ static void Task_OakSpeech_ShowGenderOptions(u8 taskId)
     {
         gTasks[taskId].tMenuWindowId = AddWindow(&sIntro_WindowTemplates[WIN_INTRO_BOYGIRL]);
         PutWindowTilemap(gTasks[taskId].tMenuWindowId);
-        DrawStdFrameWithCustomTileAndPalette(gTasks[taskId].tMenuWindowId, TRUE, GetStdWindowBaseTileNum(), 14);
+        DrawStdFrameWithCustomTileAndPalette(gTasks[taskId].tMenuWindowId, TRUE, GetStandardFrameBaseTileNum(), 14);
         FillWindowPixelBuffer(gTasks[taskId].tMenuWindowId, PIXEL_FILL(1));
         sOakSpeechResources->textColor[0] = 1;
         sOakSpeechResources->textColor[1] = 2;
@@ -1300,7 +1319,7 @@ static void Task_OakSpeech_ShowGenderOptions(u8 taskId)
         sOakSpeechResources->textColor[1] = 2;
         sOakSpeechResources->textColor[2] = 3;
         AddTextPrinterParameterized3(gTasks[taskId].tMenuWindowId, FONT_NORMAL, 8, 17, sOakSpeechResources->textColor, 0, gText_Girl);
-        Menu_InitCursor(gTasks[taskId].tMenuWindowId, FONT_NORMAL, 0, 1, GetFontAttribute(FONT_NORMAL, FONTATTR_MAX_LETTER_HEIGHT) + 2, 2, 0);
+        InitMenuNormal(gTasks[taskId].tMenuWindowId, FONT_NORMAL, 0, 1, GetFontAttribute(FONT_NORMAL, FONTATTR_MAX_LETTER_HEIGHT) + 2, 2, 0);
         CopyWindowToVram(gTasks[taskId].tMenuWindowId, COPYWIN_FULL);
         gTasks[taskId].func = Task_OakSpeech_HandleGenderInput;
     }
@@ -1308,7 +1327,7 @@ static void Task_OakSpeech_ShowGenderOptions(u8 taskId)
 
 static void Task_OakSpeech_HandleGenderInput(u8 taskId)
 {
-    s8 input = Menu_ProcessInputNoWrapAround();
+    s8 input = Menu_ProcessInputNoWrap();
     switch (input)
     {
     case 0: // BOY
@@ -1361,7 +1380,7 @@ static void Task_OakSpeech_YourNameWhatIsIt(u8 taskId)
         else
         {
             tTrainerPicPosX = 0;
-            OakSpeechPrintMessage(gOakSpeech_Text_YourNameWhatIsIt, sOakSpeechResources->textSpeed);
+            OakSpeechPrintMessage(gOakSpeech_Text_YourNameWhatIsIt, sOakSpeechResources->textSpeed, FALSE);
             gTasks[taskId].func = Task_OakSpeech_FadeOutForPlayerNamingScreen;
         }
     }
@@ -1402,9 +1421,9 @@ static void Task_OakSpeech_RepeatNameQuestion(u8 taskId)
 {
     PrintNameChoiceOptions(taskId, sOakSpeechResources->hasPlayerBeenNamed);
     if (sOakSpeechResources->hasPlayerBeenNamed == FALSE)
-        OakSpeechPrintMessage(gOakSpeech_Text_YourNameWhatIsIt, 0);
+        OakSpeechPrintMessage(gOakSpeech_Text_YourNameWhatIsIt, 0, FALSE);
     else
-        OakSpeechPrintMessage(gOakSpeech_Text_YourRivalsNameWhatWasIt, 0);
+        OakSpeechPrintMessage(gOakSpeech_Text_YourRivalsNameWhatWasIt, 0, FALSE);
     gTasks[taskId].func = Task_OakSpeech_HandleRivalNameInput;
 }
 
@@ -1468,7 +1487,7 @@ static void Task_OakSpeech_ConfirmName(u8 taskId)
                 StringExpandPlaceholders(gStringVar4, gOakSpeech_Text_SoYourNameIsPlayer);
             else
                 StringExpandPlaceholders(gStringVar4, gOakSpeech_Text_ConfirmRivalName);
-            OakSpeechPrintMessage(gStringVar4, sOakSpeechResources->textSpeed);
+            OakSpeechPrintMessage(gStringVar4, sOakSpeechResources->textSpeed, TRUE);
             tNameNotConfirmed = FALSE;
             tTimer = 25;
         }
@@ -1480,7 +1499,7 @@ static void Task_OakSpeech_ConfirmName(u8 taskId)
             }
             else
             {
-                CreateYesNoMenu(&sIntro_WindowTemplates[WIN_INTRO_YESNO], FONT_NORMAL, 0, 2, GetStdWindowBaseTileNum(), 14, 0);
+                CreateYesNoMenuAtPos(&sIntro_WindowTemplates[WIN_INTRO_YESNO], FONT_NORMAL, 0, 2, GetStandardFrameBaseTileNum(), 14, 0);
                 gTasks[taskId].func = Task_OakSpeech_HandleConfirmNameInput;
             }
         }
@@ -1504,7 +1523,7 @@ static void Task_OakSpeech_HandleConfirmNameInput(u8 taskId)
         else
         {
             StringExpandPlaceholders(gStringVar4, gOakSpeech_Text_RememberRivalsName);
-            OakSpeechPrintMessage(gStringVar4, sOakSpeechResources->textSpeed);
+            OakSpeechPrintMessage(gStringVar4, sOakSpeechResources->textSpeed, TRUE);
             gTasks[taskId].func = Task_OakSpeech_FadeOutRivalPic;
         }
         break;
@@ -1559,7 +1578,7 @@ static void Task_OakSpeech_AskRivalsName(u8 taskId)
 
     if (tTrainerPicFadeState != 0)
     {
-        OakSpeechPrintMessage(gOakSpeech_Text_WhatWasHisName, sOakSpeechResources->textSpeed);
+        OakSpeechPrintMessage(gOakSpeech_Text_WhatWasHisName, sOakSpeechResources->textSpeed, FALSE);
         sOakSpeechResources->hasPlayerBeenNamed = TRUE;
         gTasks[taskId].func = Task_OakSpeech_MoveRivalDisplayNameOptions;
     }
@@ -1596,7 +1615,7 @@ static void Task_OakSpeech_LetsGo(u8 taskId)
     if (gTasks[taskId].tTrainerPicFadeState != 0)
     {
         StringExpandPlaceholders(gStringVar4, gOakSpeech_Text_LetsGo);
-        OakSpeechPrintMessage(gStringVar4, sOakSpeechResources->textSpeed);
+        OakSpeechPrintMessage(gStringVar4, sOakSpeechResources->textSpeed, TRUE);
         gTasks[taskId].tTimer = 30;
         gTasks[taskId].func = Task_OakSpeech_FadeOutBGM;
     }
@@ -1777,7 +1796,7 @@ static void Task_OakSpeech_WaitForFade(u8 taskId)
 static void Task_OakSpeech_FreeResources(u8 taskId)
 {
     FreeAllWindowBuffers();
-    DestroyMonSpritesGfxManager();
+    DestroyMonSpritesGfxManager(MON_SPR_GFX_MANAGER_A);
     Free(sOakSpeechResources);
     sOakSpeechResources = NULL;
     gTextFlags.canABSpeedUpPrint = FALSE;
@@ -1884,8 +1903,8 @@ static void CreateNidoranFSprite(u8 taskId)
 {
     u8 spriteId;
 
-    DecompressPicFromTable(&gMonFrontPicTable[INTRO_SPECIES], MonSpritesGfxManager_GetSpritePtr(0), INTRO_SPECIES);
-    LoadCompressedSpritePaletteUsingHeap(&gMonPaletteTable[INTRO_SPECIES]);
+    LoadSpecialPokePic(MonSpritesGfxManager_GetSpritePtr(MON_SPR_GFX_MANAGER_A, 0), INTRO_SPECIES, 0, TRUE);
+    LoadSpritePaletteWithTag(GetMonSpritePalFromSpeciesAndPersonality(INTRO_SPECIES, 0, 0), INTRO_SPECIES);
     SetMultiuseSpriteTemplateToPokemon(INTRO_SPECIES, 0);
     spriteId = CreateSprite(&gMultiuseSpriteTemplate, 96, 96, 1);
     gSprites[spriteId].callback = SpriteCallbackDummy;
@@ -1971,19 +1990,19 @@ static void LoadTrainerPic(u16 whichPic, u16 tileOffset)
     {
     case MALE_PLAYER_PIC:
         LoadPalette(sOakSpeech_Red_Pal, BG_PLTT_ID(4), sizeof(sOakSpeech_Red_Pal));
-        LZ77UnCompVram(sOakSpeech_Red_Tiles, (void *)VRAM + 0x600 + tileOffset);
+        DecompressDataWithHeaderVram(sOakSpeech_Red_Tiles, (void *)VRAM + 0x600 + tileOffset);
         break;
     case FEMALE_PLAYER_PIC:
         LoadPalette(sOakSpeech_Leaf_Pal, BG_PLTT_ID(4), sizeof(sOakSpeech_Leaf_Pal));
-        LZ77UnCompVram(sOakSpeech_Leaf_Tiles, (void *)VRAM + 0x600 + tileOffset);
+        DecompressDataWithHeaderVram(sOakSpeech_Leaf_Tiles, (void *)VRAM + 0x600 + tileOffset);
         break;
     case RIVAL_PIC:
         LoadPalette(sOakSpeech_Rival_Pal, BG_PLTT_ID(6), sizeof(sOakSpeech_Rival_Pal));
-        LZ77UnCompVram(sOakSpeech_Rival_Tiles, (void *)VRAM + 0x600 + tileOffset);
+        DecompressDataWithHeaderVram(sOakSpeech_Rival_Tiles, (void *)VRAM + 0x600 + tileOffset);
         break;
     case OAK_PIC:
         LoadPalette(sOakSpeech_Oak_Pal, BG_PLTT_ID(6), sizeof(sOakSpeech_Oak_Pal));
-        LZ77UnCompVram(sOakSpeech_Oak_Tiles, (void *)VRAM + 0x600 + tileOffset);
+        DecompressDataWithHeaderVram(sOakSpeech_Oak_Tiles, (void *)VRAM + 0x600 + tileOffset);
         break;
     default:
         return;
@@ -2122,7 +2141,7 @@ static void PrintNameChoiceOptions(u8 taskId, u8 hasPlayerBeenNamed)
 
     tMenuWindowId = AddWindow(&sIntro_WindowTemplates[WIN_INTRO_NAMES]);
     PutWindowTilemap(tMenuWindowId);
-    DrawStdFrameWithCustomTileAndPalette(tMenuWindowId, 1, GetStdWindowBaseTileNum(), 14);
+    DrawStdFrameWithCustomTileAndPalette(tMenuWindowId, 1, GetStandardFrameBaseTileNum(), 14);
     FillWindowPixelBuffer(gTasks[taskId].tMenuWindowId, PIXEL_FILL(1));
     AddTextPrinterParameterized(tMenuWindowId, FONT_NORMAL, gOtherText_NewName, 8, 1, 0, NULL);
     if (hasPlayerBeenNamed == FALSE)
@@ -2131,11 +2150,11 @@ static void PrintNameChoiceOptions(u8 taskId, u8 hasPlayerBeenNamed)
         textPtrs = sRivalNameChoices;
     for (i = 0; i < ARRAY_COUNT(sRivalNameChoices); i++)
         AddTextPrinterParameterized(tMenuWindowId, FONT_NORMAL, textPtrs[i], 8, 16 * (i + 1) + 1, 0, NULL);
-    Menu_InitCursor(tMenuWindowId, FONT_NORMAL, 0, 1, 16, 5, 0);
+    InitMenuNormal(tMenuWindowId, FONT_NORMAL, 0, 1, 16, 5, 0);
     CopyWindowToVram(tMenuWindowId, COPYWIN_FULL);
 }
 
-static void GetDefaultName(u8 hasPlayerBeenNamed, u8 rivalNameChoice)
+static void GetDefaultName(u8 hasPlayerBeenNamed, u8 nameChoice)
 {
     const u8 *src;
     u8 *dest;
@@ -2150,7 +2169,7 @@ static void GetDefaultName(u8 hasPlayerBeenNamed, u8 rivalNameChoice)
     }
     else
     {
-        src = sRivalNameChoices[rivalNameChoice];
+        src = sRivalNameChoices[nameChoice];
         dest = gSaveBlock1Ptr->rivalName;
     }
     for (i = 0; i < PLAYER_NAME_LENGTH && src[i] != EOS; i++)

@@ -1,8 +1,6 @@
 #ifndef GUARD_DMA3_H
 #define GUARD_DMA3_H
 
-#include "global.h"
-
 // Maximum amount of data we will transfer in one operation
 #define MAX_DMA_BLOCK_SIZE 0x1000
 

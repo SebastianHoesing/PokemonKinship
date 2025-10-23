@@ -33,65 +33,63 @@ NAMINGGFXDIR := graphics/naming_screen
 WALLPAPERGFXDIR := graphics/pokemon_storage/wallpapers
 JPCONTESTGFXDIR := graphics/contest/japanese
 
-types := normal fight flying poison ground rock bug ghost steel mystery fire water grass electric psychic ice dragon dark
+types := none normal fight flying poison ground rock bug ghost steel mystery fire water grass electric psychic ice dragon dark
 contest_types := cool beauty cute smart tough
 
-CASTFORMGFXDIR := graphics/pokemon/castform
-$(CASTFORMGFXDIR)/front.4bpp: $(CASTFORMGFXDIR)/normal/front.4bpp \
-											$(CASTFORMGFXDIR)/sunny/front.4bpp \
-											$(CASTFORMGFXDIR)/rainy/front.4bpp \
-											$(CASTFORMGFXDIR)/snowy/front.4bpp
-	@cat $^ >$@
 
-$(CASTFORMGFXDIR)/back.4bpp: $(CASTFORMGFXDIR)/normal/back.4bpp \
-									 $(CASTFORMGFXDIR)/sunny/back.4bpp \
-									 $(CASTFORMGFXDIR)/rainy/back.4bpp \
-									 $(CASTFORMGFXDIR)/snowy/back.4bpp
-	@cat $^ >$@
-
-$(CASTFORMGFXDIR)/normal.gbapal: $(CASTFORMGFXDIR)/normal/normal.gbapal \
-									 $(CASTFORMGFXDIR)/sunny/normal.gbapal \
-									 $(CASTFORMGFXDIR)/rainy/normal.gbapal \
-									 $(CASTFORMGFXDIR)/snowy/normal.gbapal
-	@cat $^ >$@
-
-$(CASTFORMGFXDIR)/shiny.gbapal: $(CASTFORMGFXDIR)/normal/shiny.gbapal \
-									$(CASTFORMGFXDIR)/sunny/shiny.gbapal \
-									$(CASTFORMGFXDIR)/rainy/shiny.gbapal \
-									$(CASTFORMGFXDIR)/snowy/shiny.gbapal
-	@cat $^ >$@
-
+### Fonts ###
 $(FONTGFXDIR)/latin_small.latfont: $(FONTGFXDIR)/latin_small.png
-	$(GFX) $< $@
-
-$(FONTGFXDIR)/japanese_small.fwjpnfont: $(FONTGFXDIR)/japanese_small.png
-	$(GFX) $< $@
-
-$(FONTGFXDIR)/japanese_tall.fwjpnfont: $(FONTGFXDIR)/japanese_tall.png
 	$(GFX) $< $@
 
 $(FONTGFXDIR)/latin_normal.latfont: $(FONTGFXDIR)/latin_normal.png
 	$(GFX) $< $@
 
+$(FONTGFXDIR)/short.latfont: $(FONTGFXDIR)/latin_short.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/narrow.latfont: $(FONTGFXDIR)/latin_narrow.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/small_narrow.latfont: $(FONTGFXDIR)/latin_small_narrow.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/narrower.latfont: $(FONTGFXDIR)/latin_narrower.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/small_narrower.latfont: $(FONTGFXDIR)/latin_small_narrower.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/short_narrow.latfont: $(FONTGFXDIR)/latin_short_narrow.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/japanese_small.fwjpnfont: $(FONTGFXDIR)/japanese_small.png
+	$(GFX) $< $@
+
 $(FONTGFXDIR)/japanese_normal.fwjpnfont: $(FONTGFXDIR)/japanese_normal.png
 	$(GFX) $< $@
 
-$(FONTGFXDIR)/latin_male.latfont: $(FONTGFXDIR)/latin_male.png
+$(FONTGFXDIR)/japanese_bold.fwjpnfont: $(FONTGFXDIR)/japanese_bold.png
 	$(GFX) $< $@
 
-$(FONTGFXDIR)/japanese_male.fwjpnfont: $(FONTGFXDIR)/japanese_male.png
-	$(GFX) $< $@
-
-$(FONTGFXDIR)/latin_female.latfont: $(FONTGFXDIR)/latin_female.png
-	$(GFX) $< $@
-
-$(FONTGFXDIR)/japanese_female.fwjpnfont: $(FONTGFXDIR)/japanese_female.png
+$(FONTGFXDIR)/short.fwjpnfont: $(FONTGFXDIR)/japanese_short.png
 	$(GFX) $< $@
 
 $(FONTGFXDIR)/braille.fwjpnfont: $(FONTGFXDIR)/braille.png
 	$(GFX) $< $@
 
-$(FONTGFXDIR)/japanese_bold.fwjpnfont: $(FONTGFXDIR)/japanese_bold.png
+$(FONTGFXDIR)/japanese_male.fwjpnfont: $(FONTGFXDIR)/japanese_male.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/japanese_tall.fwjpnfont: $(FONTGFXDIR)/japanese_tall.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/japanese_female.fwjpnfont: $(FONTGFXDIR)/japanese_female.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/latin_male.latfont: $(FONTGFXDIR)/latin_male.png
+	$(GFX) $< $@
+
+$(FONTGFXDIR)/latin_female.latfont: $(FONTGFXDIR)/latin_female.png
 	$(GFX) $< $@
 
 graphics/title_screen/pokemon_logo.gbapal: %.gbapal: %.pal
@@ -409,6 +407,15 @@ $(FIELDEFFECTSGFXDIR)/pics/underwater_bubbles.4bpp: %.4bpp: %.png
 	$(GFX) $< $@ -mwidth 2 -mheight 4
 
 $(FIELDEFFECTSGFXDIR)/pics/bike_tire_tracks.4bpp: %.4bpp: %.png
+	$(GFX) $< $@ -mwidth 2 -mheight 2
+
+$(FIELDEFFECTSGFXDIR)/pics/slither_tracks.4bpp: %.4bpp: %.png
+	$(GFX) $< $@ -mwidth 2 -mheight 2
+
+$(FIELDEFFECTSGFXDIR)/pics/bug_tracks.4bpp: %.4bpp: %.png
+	$(GFX) $< $@ -mwidth 2 -mheight 2
+
+$(FIELDEFFECTSGFXDIR)/pics/spot_tracks.4bpp: %.4bpp: %.png
 	$(GFX) $< $@ -mwidth 2 -mheight 2
 
 $(FIELDEFFECTSGFXDIR)/pics/sand_disguise.4bpp: %.4bpp: %.png

@@ -22,7 +22,7 @@
 #include "quest_log_objects.h"
 #include "quest_log_player.h"
 #include "quest_log.h"
-#include "new_menu_helpers.h"
+#include "rtc.h"
 #include "strings.h"
 #include "constants/event_objects.h"
 #include "constants/maps.h"
@@ -133,9 +133,6 @@ static void TogglePlaybackStateForOverworldLock(u8);
 static void ResetActions(u8, struct QuestLogAction *, u16);
 static bool8 RecordHeadAtEndOfEntryOrScriptContext2Enabled(void);
 static bool8 RecordHeadAtEndOfEntry(void);
-static bool8 InQuestLogDisabledLocation(void);
-static bool8 TrySetLinkQuestLogEvent(u16, const u16 *);
-static bool8 TrySetTrainerBattleQuestLogEvent(u16, const u16 *);
 
 static const struct WindowTemplate sWindowTemplates[WIN_COUNT] = {
     [WIN_TOP_BAR] = {
@@ -361,8 +358,8 @@ static void SetNPCInitialCoordsAtScene(u8 sceneNum)
             questLog->objectEventTemplates[i].y = (u8)gSaveBlock1Ptr->objectEventTemplates[i].y;
             questLog->objectEventTemplates[i].negy = FALSE;
         }
-        questLog->objectEventTemplates[i].elevation = gSaveBlock1Ptr->objectEventTemplates[i].objUnion.normal.elevation;
-        questLog->objectEventTemplates[i].movementType = gSaveBlock1Ptr->objectEventTemplates[i].objUnion.normal.movementType;
+        questLog->objectEventTemplates[i].elevation = gSaveBlock1Ptr->objectEventTemplates[i].elevation;
+        questLog->objectEventTemplates[i].movementType = gSaveBlock1Ptr->objectEventTemplates[i].movementType;
     }
 }
 
@@ -392,8 +389,10 @@ static void BackUpTrainerRematches(void)
         // 16 bits per var
         for (j = 0; j < 16; j++)
         {
+#if FREE_MATCH_CALL == FALSE
             if (gSaveBlock1Ptr->trainerRematches[16 * i + j])
                 vars[i] += (1 << j);
+#endif //FREE_MATCH_CALL
         }
         VarSet(VAR_QLBAK_TRAINER_REMATCHES + i, vars[i]);
     }
@@ -449,6 +448,7 @@ void TryStartQuestLogPlayback(u8 taskId)
 {
     u8 i;
 
+    UpdateLoadedSeason();
     QL_EnableRecordingSteps();
     sNumScenes = 0;
     for (i = 0; i < QUEST_LOG_SCENE_COUNT; i++)
@@ -557,8 +557,8 @@ static void QL_LoadObjectsAndTemplates(u8 sceneNum)
             gSaveBlock1Ptr->objectEventTemplates[i].y = -(u8)questLog->objectEventTemplates[i].y;
         else
             gSaveBlock1Ptr->objectEventTemplates[i].y = questLog->objectEventTemplates[i].y;
-        gSaveBlock1Ptr->objectEventTemplates[i].objUnion.normal.elevation = questLog->objectEventTemplates[i].elevation;
-        gSaveBlock1Ptr->objectEventTemplates[i].objUnion.normal.movementType = questLog->objectEventTemplates[i].movementType;
+        gSaveBlock1Ptr->objectEventTemplates[i].elevation = questLog->objectEventTemplates[i].elevation;
+        gSaveBlock1Ptr->objectEventTemplates[i].movementType = questLog->objectEventTemplates[i].movementType;
     }
 
     QL_LoadObjects(questLog, gSaveBlock1Ptr->objectEventTemplates);
@@ -741,10 +741,12 @@ static void RestoreTrainerRematches(void)
         // 16 bits per var
         for (j = 0; j < 16; j++)
         {
+#if FREE_MATCH_CALL == FALSE
             if (vars[i] & 1)
                 gSaveBlock1Ptr->trainerRematches[16 * i + j] = 30;
             else
                 gSaveBlock1Ptr->trainerRematches[16 * i + j] = 0;
+#endif //FREE_MATCH_CALL
             vars[i] >>= 1;
         }
     }
@@ -1133,7 +1135,7 @@ static void Task_FinalScene_WaitFade(u8 taskId)
     if (ArePlayerFieldControlsLocked() != TRUE)
     {
         FreezeObjectEvents();
-        HandleEnforcedLookDirectionOnPlayerStopMoving();
+        PlayerFreeze();
         StopPlayerAvatar();
         LockPlayerFieldControls();
         task->func = Task_QuestLogScene_SavedGame;
@@ -1250,6 +1252,15 @@ static bool8 RestoreScreenAfterPlayback(u8 taskId)
 
     CopyPaletteInvertedTint(&gPlttBufferUnfaded[BG_PLTT_ID(0) + 1], &gPlttBufferFaded[BG_PLTT_ID(0) + 1], 0xDF, 15 - tTimer);
     CopyPaletteInvertedTint(&gPlttBufferUnfaded[OBJ_PLTT_ID(0)], &gPlttBufferFaded[OBJ_PLTT_ID(0)], 0x100, 15 - tTimer);
+                            
+    gTimeUpdateCounter = 0;
+    UpdateTimeOfDay();
+    
+    if (MapHasNaturalLight(gMapHeader.mapType))
+    {
+        UpdateAltBgPalettes(PALETTES_BG);
+        UpdatePalettesWithTime(PALETTES_ALL);
+    }
     FillWindowPixelRect(sWindowIds[WIN_TOP_BAR],
                         0x00, 0,
                         sWindowTemplates[WIN_TOP_BAR].height * 8 - 1 - tTimer,
@@ -1339,6 +1350,8 @@ void SaveQuestLogData(void)
 
 void QL_UpdateObject(struct Sprite *sprite)
 {
+    // index 0 is reserved for player, index 1 is reserved for follower
+    // other ObjectsEvents are at index localId + 1
     struct ObjectEvent *objectEvent = &gObjectEvents[sprite->data[0]];
     if (objectEvent->localId == LOCALID_PLAYER)
     {
@@ -1354,12 +1367,21 @@ void QL_UpdateObject(struct Sprite *sprite)
         }
         QL_UpdateObjectEventCurrentMovement(objectEvent, sprite);
     }
+    else if (objectEvent->localId == OBJ_EVENT_ID_FOLLOWER)
+    {
+        if (sMovementScripts[1][0] != MOVEMENT_ACTION_NONE)
+        {
+            ObjectEventSetHeldMovement(objectEvent, sMovementScripts[1][0]);
+            sMovementScripts[1][0] = MOVEMENT_ACTION_NONE;
+        }
+        QL_UpdateObjectEventCurrentMovement(objectEvent, sprite);
+    }
     else
     {
         if (sMovementScripts[objectEvent->localId][0] != MOVEMENT_ACTION_NONE)
         {
-            ObjectEventSetHeldMovement(objectEvent, sMovementScripts[objectEvent->localId][0]);
-            sMovementScripts[objectEvent->localId][0] = MOVEMENT_ACTION_NONE;
+            ObjectEventSetHeldMovement(objectEvent, sMovementScripts[objectEvent->localId + 1][0]);
+            sMovementScripts[objectEvent->localId + 1][0] = MOVEMENT_ACTION_NONE;
         }
         QL_UpdateObjectEventCurrentMovement(objectEvent, sprite);
     }
@@ -1371,7 +1393,10 @@ void QuestLogRecordNPCStep(u8 localId, u8 mapNum, u8 mapGroup, u8 movementAction
     {
         sCurSceneActions[gQuestLogCurActionIdx].duration = sNextActionDelay;
         sCurSceneActions[gQuestLogCurActionIdx].type = QL_ACTION_MOVEMENT;
-        sCurSceneActions[gQuestLogCurActionIdx].data.a.localId = localId;
+        if (localId == OBJ_EVENT_ID_FOLLOWER)
+            sCurSceneActions[gQuestLogCurActionIdx].data.a.localId = 1;
+        else
+            sCurSceneActions[gQuestLogCurActionIdx].data.a.localId = localId + 1;
         sCurSceneActions[gQuestLogCurActionIdx].data.a.mapNum = mapNum;
         sCurSceneActions[gQuestLogCurActionIdx].data.a.mapGroup = mapGroup;
         sCurSceneActions[gQuestLogCurActionIdx].data.a.movementActionId = movementActionId;
@@ -1386,7 +1411,10 @@ void QuestLogRecordNPCStepWithDuration(u8 localId, u8 mapNum, u8 mapGroup, u8 mo
     {
         sCurSceneActions[gQuestLogCurActionIdx].duration = sNextActionDelay;
         sCurSceneActions[gQuestLogCurActionIdx].type = QL_ACTION_MOVEMENT;
-        sCurSceneActions[gQuestLogCurActionIdx].data.a.localId = localId;
+        if (localId == OBJ_EVENT_ID_FOLLOWER)
+            sCurSceneActions[gQuestLogCurActionIdx].data.a.localId = 1;
+        else
+            sCurSceneActions[gQuestLogCurActionIdx].data.a.localId = localId + 1;
         sCurSceneActions[gQuestLogCurActionIdx].data.a.mapNum = mapNum;
         sCurSceneActions[gQuestLogCurActionIdx].data.a.mapGroup = mapGroup;
         sCurSceneActions[gQuestLogCurActionIdx].data.a.movementActionId = movementActionId;
@@ -1742,26 +1770,4 @@ void QuestLogSetFlagOrVar(bool8 isFlag, u16 idx, u16 value)
     sFlagOrVarRecords[sFlagOrVarPlayhead].isFlag = isFlag;
     sFlagOrVarRecords[sFlagOrVarPlayhead].value = value;
     sFlagOrVarPlayhead++;
-}
-
-// Unused
-static void QuestLogResetFlagsOrVars(u8 state, struct FlagOrVarRecord * records, u16 size)
-{
-    s32 i;
-
-    if (state == 0 || state > QL_STATE_PLAYBACK)
-    {
-        gQuestLogPlaybackState = QL_PLAYBACK_STATE_STOPPED;
-    }
-    else
-    {
-        sFlagOrVarRecords = records;
-        sNumFlagsOrVars = size / 4;
-        sFlagOrVarPlayhead = 0;
-        if (state == QL_STATE_PLAYBACK)
-        {
-            for (i = 0; i < sMaxActionsInScene; i++)
-                sFlagOrVarRecords[i] = sDummyFlagOrVarRecord;
-        }
-    }
 }

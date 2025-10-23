@@ -1,20 +1,24 @@
 EventScript_DoTrainerBattleFromApproach::
-	lock
+	selectapproachingtrainer
+	lockfortrainer
+EventScript_TrainerApproach::
 	special PlayTrainerEncounterMusic
 	special EndTrainerApproach
 	waitstate
-	goto EventScript_DoTrainerBattle
+	goto EventScript_ShowTrainerIntroMsg
 
 EventScript_TryDoNormalTrainerBattle::
 	lock
 	faceplayer
+	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	applymovement VAR_LAST_TALKED, Movement_RevealTrainer
 	waitmovement 0
+	clearflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	specialvar VAR_RESULT, Script_HasTrainerBeenFought
 	goto_if_ne VAR_RESULT, FALSE, EventScript_NoTrainerBattle
 	special PlayTrainerEncounterMusic
 	special SetUpTrainerMovement
-	goto EventScript_DoTrainerBattle
+	goto EventScript_ShowTrainerIntroMsg
 
 EventScript_NoTrainerBattle::
 	gotopostbattlescript
@@ -29,7 +33,7 @@ EventScript_TryDoDoubleTrainerBattle::
 	goto_if_ne VAR_RESULT, PLAYER_HAS_TWO_USABLE_MONS, EventScript_NotEnoughMonsForDoubleBattle
 	special PlayTrainerEncounterMusic
 	special SetUpTrainerMovement
-	goto EventScript_DoTrainerBattle
+	goto EventScript_ShowTrainerIntroMsg
 
 EventScript_NotEnoughMonsForDoubleBattle::
 	special ShowTrainerCantBattleSpeech
@@ -42,8 +46,10 @@ EventScript_NoDoubleTrainerBattle::
 	gotopostbattlescript
 
 EventScript_DoNoIntroTrainerBattle::
+	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	applymovement VAR_LAST_TALKED, Movement_RevealTrainer
 	waitmovement 0
+	clearflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	special PlayTrainerEncounterMusic
 	goto_if_questlog EventScript_EndQuestLogBattle
 	dotrainerbattle
@@ -59,7 +65,7 @@ EventScript_TryDoRematchBattle::
 	waitmessage
 	waitbuttonpress
 	goto_if_questlog EventScript_EndQuestLogRematch
-	special StartRematchBattle
+	special BattleSetup_StartRematchBattle
 	waitstate
 	releaseall
 	end
@@ -78,7 +84,7 @@ EventScript_TryDoDoubleRematchBattle::
 	waitmessage
 	waitbuttonpress
 	goto_if_questlog EventScript_EndQuestLogRematch
-	special StartRematchBattle
+	special BattleSetup_StartRematchBattle
 	waitstate
 	releaseall
 	end
@@ -98,18 +104,25 @@ EventScript_EndQuestLogRematch::
 	end
 
 EventScript_RevealTrainer::
+	setflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	applymovement VAR_LAST_TALKED, Movement_RevealTrainer
 	waitmovement 0
+	clearflag FLAG_SAFE_FOLLOWER_MOVEMENT
 	return
 
 Movement_RevealTrainer::
 	reveal_trainer
 	step_end
 
-EventScript_DoTrainerBattle::
+EventScript_ShowTrainerIntroMsg::
 	special ShowTrainerIntroSpeech
 	waitmessage
 	waitbuttonpress
+	special TryPrepareSecondApproachingTrainer
+	goto_if_eq VAR_RESULT, TRUE, EventScript_TrainerApproach
+	goto EventScript_DoTrainerBattle
+
+EventScript_DoTrainerBattle::
 	goto_if_questlog EventScript_EndQuestLogBattle
 	dotrainerbattle
 	specialvar VAR_RESULT, GetTrainerBattleMode

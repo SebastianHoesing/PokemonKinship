@@ -24,6 +24,7 @@
 
 extern struct BackupMapLayout VMap;
 extern const struct MapLayout Route1_Layout;
+extern u16 ALIGNED(4) sBackupMapData[VIRTUAL_MAP_SIZE];
 
 u32 MapGridGetMetatileIdAt(s32, s32);
 u32 MapGridGetMetatileBehaviorAt(s16, s16);
@@ -47,7 +48,7 @@ void CopyMapTilesetsToVram(struct MapLayout const * mapLayout);
 void LoadMapTilesetPalettes(struct MapLayout const * mapLayout);
 void InitMap(void);
 void CopySecondaryTilesetToVramUsingHeap(const struct MapLayout * mapLayout);
-void LoadSecondaryTilesetPalette(const struct MapLayout * mapLayout);
+void LoadSecondaryTilesetPalette(const struct MapLayout * mapLayout, bool8 skipFaded);
 void InitMapFromSavedGame(void);
 void CopyPrimaryTilesetToVram(const struct MapLayout *mapLayout);
 void CopySecondaryTilesetToVram(const struct MapLayout *mapLayout);

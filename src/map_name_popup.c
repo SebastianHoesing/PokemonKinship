@@ -6,6 +6,7 @@
 #include "quest_log.h"
 #include "region_map.h"
 #include "strings.h"
+#include "map_name_popup_expansion.h"
 
 #define FLOOR_ROOFTOP 127
 
@@ -27,6 +28,15 @@ static u8 *MapNamePopupAppendFloorNum(u8 *dest, s8 flags);
 void ShowMapNamePopup(bool32 palIntoFadedBuffer)
 {
     u8 taskId;
+    if (QL_IS_PLAYBACK_STATE)
+        return;
+
+    if (OW_POPUP_GENERATION >= GEN_4)
+    {
+        ShowMapNamePopupExpansion();
+        return;
+    }
+
     if (FlagGet(FLAG_DONT_SHOW_MAP_NAME_POPUP) != TRUE && !QL_IS_PLAYBACK_STATE)
     {
         taskId = FindTaskIdByFunc(Task_MapNamePopup);
@@ -126,10 +136,17 @@ static void Task_MapNamePopup(u8 taskId)
     SetGpuReg(REG_OFFSET_BG0VOFS, task->tPos);
 }
 
-void DismissMapNamePopup(void)
+void HideMapNamePopUpWindow(void)
 {
     u8 taskId;
     s16 *data;
+
+    if (OW_POPUP_GENERATION >= GEN_4)
+    {
+        HideMapNamePopUpExpansionWindow();
+        return;
+    }
+
     taskId = FindTaskIdByFunc(Task_MapNamePopup);
     if (taskId != TASK_NONE)
     {

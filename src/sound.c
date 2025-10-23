@@ -1,12 +1,15 @@
 #include "global.h"
 #include "gba/m4a_internal.h"
-#include "gflib.h"
+#include "sound.h"
 #include "battle.h"
-#include "quest_log.h"
 #include "m4a.h"
+#include "main.h"
+#include "pokemon.h"
+#include "quest_log.h"
+#include "constants/cries.h"
 #include "constants/songs.h"
-#include "constants/sound.h"
 #include "task.h"
+#include "test_runner.h"
 
 struct Fanfare
 {
@@ -18,33 +21,22 @@ struct Fanfare
 extern u8 gDisableMapMusicChangeOnMapLoad;
 extern u8 gDisableHelpSystemVolumeReduce;
 
-// ewram
-EWRAM_DATA struct MusicPlayerInfo* gMPlay_PokemonCry = NULL;
+EWRAM_DATA struct MusicPlayerInfo *gMPlay_PokemonCry = NULL;
 EWRAM_DATA u8 gPokemonCryBGMDuckingCounter = 0;
 
-// iwram bss
 static u16 sCurrentMapMusic;
 static u16 sNextMapMusic;
 static u8 sMapMusicState;
 static u8 sMapMusicFadeInSpeed;
 static u16 sFanfareCounter;
 
-// iwram common
 COMMON_DATA bool8 gDisableMusic = 0;
 
-extern u32 gBattleTypeFlags;
-extern struct MusicPlayerInfo gMPlayInfo_BGM;
-extern struct MusicPlayerInfo gMPlayInfo_SE1;
-extern struct MusicPlayerInfo gMPlayInfo_SE2;
-extern struct MusicPlayerInfo gMPlayInfo_SE3;
 extern struct ToneData gCryTable[];
 extern struct ToneData gCryTable_Reverse[];
 
-extern u16 SpeciesToCryId(u16);
-
 static void Task_Fanfare(u8 taskId);
 static void CreateFanfareTask(void);
-static void Task_DuckBGMForPokemonCry(u8 taskId);
 static void RestoreBGMVolumeAfterPokemonCry(void);
 
 static const struct Fanfare sFanfares[] = {
@@ -166,8 +158,7 @@ void FadeOutAndFadeInNewMapMusic(u16 songNum, u8 fadeOutSpeed, u8 fadeInSpeed)
     sMapMusicFadeInSpeed = fadeInSpeed;
 }
 
-// Unused
-static void FadeInNewMapMusic(u16 songNum, u8 speed)
+static void UNUSED FadeInNewMapMusic(u16 songNum, u8 speed)
 {
     FadeInNewBGM(songNum, speed);
     sCurrentMapMusic = songNum;
@@ -255,6 +246,13 @@ bool8 IsFanfareTaskInactive(void)
 
 static void Task_Fanfare(u8 taskId)
 {
+    if (gTestRunnerHeadless)
+    {
+        DestroyTask(taskId);
+        sFanfareCounter = 0;
+        return;
+    }
+
     if (sFanfareCounter)
     {
         sFanfareCounter--;
@@ -360,6 +358,21 @@ void PlayCry_ReleaseDouble(u16 species, s8 pan, u8 mode)
     }
 }
 
+// Duck the BGM but don't restore it. Not present in R/S
+void PlayCry_DuckNoRestore(u16 species, s8 pan, u8 mode)
+{
+    if (mode == CRY_MODE_DOUBLES)
+    {
+        PlayCryInternal(species, pan, CRY_VOLUME, CRY_PRIORITY_NORMAL, mode);
+    }
+    else
+    {
+        m4aMPlayVolumeControl(&gMPlayInfo_BGM, TRACKS_ALL, 85);
+        PlayCryInternal(species, pan, CRY_VOLUME, CRY_PRIORITY_NORMAL, mode);
+        gPokemonCryBGMDuckingCounter = 2;
+    }
+}
+
 void PlayCry_Script(u16 species, u8 mode)
 {
     if (!QL_IS_PLAYBACK_STATE) // This check is exclusive to FR/LG
@@ -378,14 +391,10 @@ void PlayCryInternal(u16 species, s8 pan, s8 volume, u8 priority, u8 mode)
     u32 length;
     u32 pitch;
     u32 chorus;
-    u32 index;
-    u8 table;
 
-    species--;
-    
     // Set default values
     // May be overridden depending on mode.
-    length = 140;
+    length = 210;
     reverse = FALSE;
     release = 0;
     pitch = 15360;
@@ -469,34 +478,12 @@ void PlayCryInternal(u16 species, s8 pan, s8 volume, u8 priority, u8 mode)
     SetPokemonCryChorus(chorus);
     SetPokemonCryPriority(priority);
 
-    // This is a fancy way to get a cry of a pokemon.
-    // It creates 4 sets of 128 mini cry tables.
-    // If you wish to expand pokemon, you need to
-    // append new cases to the switch.
-    species = SpeciesToCryId(species);
-    index = species % 128;
-    table = species / 128;
-
-    #define GET_CRY(speciesIndex, tableId, reversed) \
-        ((reversed) ? &gCryTable_Reverse[(128 * (tableId)) + (speciesIndex)] : &gCryTable[(128 * (tableId)) + (speciesIndex)])
-
-    switch (table)
+    enum PokemonCry cryId = GetCryIdBySpecies(species);
+    if (cryId != CRY_NONE)
     {
-    case 0:
-        gMPlay_PokemonCry = SetPokemonCryTone(GET_CRY(index, 0, reverse));
-        break;
-    case 1:
-        gMPlay_PokemonCry = SetPokemonCryTone(GET_CRY(index, 1, reverse));
-        break;
-    case 2:
-        gMPlay_PokemonCry = SetPokemonCryTone(GET_CRY(index, 2, reverse));
-        break;
-    case 3:
-        gMPlay_PokemonCry = SetPokemonCryTone(GET_CRY(index, 3, reverse));
-        break;
+        cryId--;
+        gMPlay_PokemonCry = SetPokemonCryTone(reverse ? &gCryTable_Reverse[cryId] : &gCryTable[cryId]);
     }
-
-    #undef GET_CRY
 }
 
 bool8 IsCryFinished(void)
@@ -544,7 +531,7 @@ bool8 IsCryPlaying(void)
         return FALSE;
 }
 
-static void Task_DuckBGMForPokemonCry(u8 taskId)
+void Task_DuckBGMForPokemonCry(u8 taskId)
 {
     if (gPokemonCryBGMDuckingCounter)
     {

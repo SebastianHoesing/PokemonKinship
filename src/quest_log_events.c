@@ -5,6 +5,7 @@
 #include "dynamic_placeholder_text_util.h"
 #include "event_data.h"
 #include "event_scripts.h"
+#include "field_move.h"
 #include "menu_helpers.h"
 #include "item.h"
 #include "link.h"
@@ -13,6 +14,7 @@
 #include "pokemon_storage_system.h"
 #include "region_map.h"
 #include "strings.h"
+#include "constants/field_move.h"
 #include "constants/maps.h"
 #include "constants/trainers.h"
 #include "constants/items.h"
@@ -423,22 +425,6 @@ static const u8 sGymCityMapSecs[NUM_BADGES] = {
     MAPSEC_VIRIDIAN_CITY,
 };
 
-static const u8 *const sUsedFieldMoveTexts[] =
-{
-    [FIELD_MOVE_FLASH]       = gText_QuestLog_UsedFlash,
-    [FIELD_MOVE_CUT]         = gText_QuestLog_UsedCut,
-    [FIELD_MOVE_FLY]         = gText_QuestLog_UsedFly,
-    [FIELD_MOVE_STRENGTH]    = gText_QuestLog_UsedStrength,
-    [FIELD_MOVE_SURF]        = gText_QuestLog_UsedSurf,
-    [FIELD_MOVE_ROCK_SMASH]  = gText_QuestLog_UsedRockSmash,
-    [FIELD_MOVE_WATERFALL]   = gText_QuestLog_UsedWaterfall,
-    [FIELD_MOVE_TELEPORT]    = gText_QuestLog_UsedTeleportToLocation,
-    [FIELD_MOVE_DIG]         = gText_QuestLog_UsedDigInLocation,
-    [FIELD_MOVE_MILK_DRINK]  = gText_QuestLog_UsedMilkDrink,
-    [FIELD_MOVE_SOFT_BOILED] = gText_QuestLog_UsedSoftboiled,
-    [FIELD_MOVE_SWEET_SCENT] = gText_QuestLog_UsedSweetScent
-};
-
 static const u16 sWorldMapFlags[] =
 {
     FLAG_WORLD_MAP_VIRIDIAN_CITY,
@@ -636,7 +622,7 @@ static bool8 ShouldRegisterEvent_HandleBeatStoryTrainer(u16 eventId, const u16 *
     if (eventId == QL_EVENT_DEFEATED_TRAINER)
     {
         const struct QuestLogEvent_TrainerBattle * data = (struct QuestLogEvent_TrainerBattle *)genericData;
-        u8 trainerClass = gTrainers[data->trainerId].trainerClass;
+        u32 trainerClass =  GetTrainerClassFromId(data->trainerId);
         if (trainerClass == TRAINER_CLASS_RIVAL_EARLY
          || trainerClass == TRAINER_CLASS_RIVAL_LATE
          || trainerClass == TRAINER_CLASS_CHAMPION
@@ -1016,14 +1002,18 @@ static void QuestLog_GetSpeciesName(u16 species, u8 *dest, u8 stringVarId)
     if (dest != NULL)
     {
         if (species != SPECIES_EGG)
-            GetSpeciesName(dest, species);
+        {
+            StringCopy(dest, GetSpeciesName(species));
+        }
         else
+        {
             StringCopy(dest, gText_EggNickname);
+        }
     }
     else
     {
         if (species != SPECIES_EGG)
-            DynamicPlaceholderTextUtil_SetPlaceholderPtr(stringVarId, gSpeciesNames[species]);
+            DynamicPlaceholderTextUtil_SetPlaceholderPtr(stringVarId, gSpeciesInfo[species].speciesName);
         else
             DynamicPlaceholderTextUtil_SetPlaceholderPtr(stringVarId, gText_EggNickname);
     }
@@ -1073,12 +1063,12 @@ static const u16 *LoadEvent_UsedItem(const u16 *eventData)
 {
     const u16 *record = LoadEvent(QL_EVENT_USED_ITEM, eventData);
 
-    switch (ItemId_GetPocket(rItemId))
+    switch (GetItemPocket(rItemId))
     {
     case POCKET_ITEMS:
     case POCKET_POKE_BALLS:
-    case POCKET_BERRY_POUCH:
-        StringCopy(gStringVar1, ItemId_GetName(rItemId));
+    case POCKET_BERRIES:
+        StringCopy(gStringVar1, GetItemName(rItemId));
         if (rItemId == ITEM_ESCAPE_ROPE)
         {
             GetMapNameGeneric(gStringVar2, (u8)rItemParam);
@@ -1095,15 +1085,15 @@ static const u16 *LoadEvent_UsedItem(const u16 *eventData)
         }
         break;
     case POCKET_KEY_ITEMS:
-        StringCopy(gStringVar1, ItemId_GetName(rItemId));
+        StringCopy(gStringVar1, GetItemName(rItemId));
         StringExpandPlaceholders(gStringVar4, gText_QuestLog_UsedTheKeyItem);
         break;
-    case POCKET_TM_CASE:
+    case POCKET_TM_HM:
         QuestLog_GetSpeciesName(rSpecies, gStringVar1, 0);
-        StringCopy(gStringVar2, gMoveNames[ItemIdToBattleMoveId(rItemId)]);
+        StringCopy(gStringVar2, gMovesInfo[ItemIdToBattleMoveId(rItemId)].name);
         if (rItemParam != 0xFFFF)
         {
-            StringCopy(gStringVar3, gMoveNames[rItemParam]);
+            StringCopy(gStringVar3, gMovesInfo[rItemParam].name);
             if (rItemId >= ITEM_HM01)
                 StringExpandPlaceholders(gStringVar4, gText_QuestLog_MonReplacedMoveWithHM);
             else
@@ -1116,6 +1106,8 @@ static const u16 *LoadEvent_UsedItem(const u16 *eventData)
             else
                 StringExpandPlaceholders(gStringVar4, gText_QuestLog_MonLearnedMoveFromTM);
         }
+        break;
+    default:
         break;
     }
     return record + 3;
@@ -1141,7 +1133,7 @@ static const u16 *LoadEvent_GaveHeldItemFromPartyMenu(const u16 * eventData)
 {
     const u16 *record = LoadEvent(QL_EVENT_GAVE_HELD_ITEM, eventData);
     QuestLog_GetSpeciesName(rSpecies, gStringVar1, 0);
-    StringCopy(gStringVar2, ItemId_GetName(rItemId));
+    StringCopy(gStringVar2, GetItemName(rItemId));
     StringExpandPlaceholders(gStringVar4, gText_QuestLog_GaveMonHeldItem);
     return record + 2;
 }
@@ -1155,7 +1147,7 @@ static const u16 *LoadEvent_GaveHeldItemFromBagMenu(const u16 *eventData)
 {
     const u16 *record = LoadEvent(QL_EVENT_GAVE_HELD_ITEM_BAG, eventData);
     QuestLog_GetSpeciesName(rSpecies, gStringVar1, 0);
-    StringCopy(gStringVar2, ItemId_GetName(rItemId));
+    StringCopy(gStringVar2, GetItemName(rItemId));
     StringExpandPlaceholders(gStringVar4, gText_QuestLog_GaveMonHeldItem2);
     return record + 2;
 }
@@ -1170,7 +1162,7 @@ static const u16 *LoadEvent_GaveHeldItemFromPC(const u16 *eventData)
     const u16 *record = LoadEvent(QL_EVENT_GAVE_HELD_ITEM_PC, eventData);
 
     QuestLog_GetSpeciesName(rSpecies, gStringVar2, 0);
-    StringCopy(gStringVar1, ItemId_GetName(rItemId));
+    StringCopy(gStringVar1, GetItemName(rItemId));
     StringExpandPlaceholders(gStringVar4, gText_QuestLog_GaveMonHeldItemFromPC);
     return record + 2;
 }
@@ -1185,7 +1177,7 @@ static const u16 *LoadEvent_TookHeldItem(const u16 *eventData)
     const u16 *record = LoadEvent(QL_EVENT_TOOK_HELD_ITEM, eventData);
 
     QuestLog_GetSpeciesName(rSpecies, gStringVar1, 0);
-    StringCopy(gStringVar2, ItemId_GetName(rItemId));
+    StringCopy(gStringVar2, GetItemName(rItemId));
     StringExpandPlaceholders(gStringVar4, gText_QuestLog_TookHeldItemFromMon);
     return record + 2;
 }
@@ -1219,8 +1211,8 @@ static const u16 *LoadEvent_SwappedHeldItem(const u16 *eventData)
 {
     const u16 *record = LoadEvent(QL_EVENT_SWAPPED_HELD_ITEM, eventData);
     QuestLog_GetSpeciesName(rSpecies, gStringVar1, 0);
-    StringCopy(gStringVar2, ItemId_GetName(rTakenItemId));
-    StringCopy(gStringVar3, ItemId_GetName(rGivenItemId));
+    StringCopy(gStringVar2, GetItemName(rTakenItemId));
+    StringCopy(gStringVar3, GetItemName(rGivenItemId));
     StringExpandPlaceholders(gStringVar4, gText_QuestLog_SwappedHeldItemsOnMon);
     return record + 3;
 }
@@ -1234,8 +1226,8 @@ static const u16 *LoadEvent_SwappedHeldItemFromPC(const u16 *eventData)
 {
     const u16 *record = LoadEvent(QL_EVENT_SWAPPED_HELD_ITEM_PC, eventData);
     QuestLog_GetSpeciesName(rSpecies, gStringVar2, 0);
-    StringCopy(gStringVar3, ItemId_GetName(rTakenItemId));
-    StringCopy(gStringVar1, ItemId_GetName(rGivenItemId));
+    StringCopy(gStringVar3, GetItemName(rTakenItemId));
+    StringCopy(gStringVar1, GetItemName(rGivenItemId));
     StringExpandPlaceholders(gStringVar4, gText_QuestLog_SwappedHeldItemFromPC);
     return record + 3;
 }
@@ -1752,7 +1744,7 @@ static const u16 *LoadEvent_DefeatedGymLeader(const u16 *eventData)
     DynamicPlaceholderTextUtil_Reset();
     GetMapNameGeneric(gStringVar1, r6[0]);
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, gStringVar1);
-    DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, gTrainers[eventData[2]].trainerName);
+    DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, GetTrainerNameFromId(eventData[2]));
     QuestLog_GetSpeciesName(eventData[0], 0, 2);
     QuestLog_GetSpeciesName(eventData[1], 0, 3);
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(4, sDefeatedOpponentFlavorTexts[r6[1]]);
@@ -1860,7 +1852,7 @@ static const u16 *LoadEvent_DefeatedEliteFourMember(const u16 *eventData)
     eventData = LoadEvent(QL_EVENT_DEFEATED_E4_MEMBER, eventData);
     r5 = (const u8 *)eventData + 6;
     DynamicPlaceholderTextUtil_Reset();
-    DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, gTrainers[eventData[2]].trainerName);
+    DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, GetTrainerNameFromId(eventData[2]));
     QuestLog_GetSpeciesName(eventData[0], NULL, 1);
     QuestLog_GetSpeciesName(eventData[1], NULL, 2);
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(3, sDefeatedOpponentFlavorTexts[r5[1]]);
@@ -1922,16 +1914,17 @@ static const u16 *LoadEvent_DefeatedTrainer(const u16 *eventData)
 {
     const u16 *r5 = LoadEvent(QL_EVENT_DEFEATED_TRAINER, eventData);
     const u8 *r6 = (const u8 *)r5 + 6;
+    u32 trainerClass = GetTrainerClassFromId(r5[2]);
     DynamicPlaceholderTextUtil_Reset();
     GetMapNameGeneric(gStringVar1, r6[0]);
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, gStringVar1);
 
-    if (gTrainers[r5[2]].trainerClass == TRAINER_CLASS_RIVAL_EARLY
-     || gTrainers[r5[2]].trainerClass == TRAINER_CLASS_RIVAL_LATE
-     || gTrainers[r5[2]].trainerClass == TRAINER_CLASS_CHAMPION)
+    if (trainerClass == TRAINER_CLASS_RIVAL_EARLY
+     || trainerClass == TRAINER_CLASS_RIVAL_LATE
+     || trainerClass == TRAINER_CLASS_CHAMPION)
         DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, GetExpandedPlaceholder(PLACEHOLDER_ID_RIVAL));
     else
-        DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, gTrainers[r5[2]].trainerName);
+        DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, GetTrainerNameFromId(r5[2]));
 
     QuestLog_GetSpeciesName(r5[0], NULL, 2);
     QuestLog_GetSpeciesName(r5[1], NULL, 3);
@@ -2068,7 +2061,7 @@ static const u16 *LoadEvent_UsedFieldMove(const u16 *eventData)
             StringCopy(gStringVar3, gText_PokemonCenter);
     }
 
-    StringExpandPlaceholders(gStringVar4, sUsedFieldMoveTexts[r5[0]]);
+    StringExpandPlaceholders(gStringVar4, gFieldMovesInfo[r5[0]].questLogText);
     return (const u16 *)(r5 + 2);
 }
 
@@ -2094,7 +2087,7 @@ static const u16 *LoadEvent_BoughtItem(const u16 *eventData)
     DynamicPlaceholderTextUtil_Reset();
     GetMapNameGeneric(gStringVar1, r7[0]);
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, gStringVar1);
-    DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, ItemId_GetName(r4[0]));
+    DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, GetItemName(r4[0]));
     if (r4[1] < 2)
         DynamicPlaceholderTextUtil_ExpandPlaceholders(gStringVar4, gText_QuestLog_BoughtItem);
     else
@@ -2130,7 +2123,7 @@ static const u16 *LoadEvent_SoldItem(const u16 *eventData)
     if (r7[1] == 0) {
         DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, gSaveBlock2Ptr->playerName);
         DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, gStringVar1);
-        DynamicPlaceholderTextUtil_SetPlaceholderPtr(2, ItemId_GetName(r5[0]));
+        DynamicPlaceholderTextUtil_SetPlaceholderPtr(2, GetItemName(r5[0]));
         if (r5[1] == 1)
             DynamicPlaceholderTextUtil_SetPlaceholderPtr(3, gText_QuestLog_JustOne);
         else
@@ -2145,7 +2138,7 @@ static const u16 *LoadEvent_SoldItem(const u16 *eventData)
     else
     {
         DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, gStringVar1);
-        DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, ItemId_GetName(r5[0]));
+        DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, GetItemName(r5[0]));
         ConvertIntToDecimalStringN(gStringVar2, r6, STR_CONV_MODE_LEFT_ALIGN, 6);
         DynamicPlaceholderTextUtil_SetPlaceholderPtr(2, gStringVar2);
         DynamicPlaceholderTextUtil_ExpandPlaceholders(gStringVar4, gText_QuestLog_SoldItemsIncludingItem);
@@ -2168,7 +2161,7 @@ static const u16 *LoadEvent_ObtainedStoryItem(const u16 *eventData)
     const u16 *r4 = LoadEvent(QL_EVENT_OBTAINED_STORY_ITEM, eventData);
     const u8 *r5 = (const u8 *)r4 + 2;
     GetMapNameGeneric(gStringVar1, r5[0]);
-    StringCopy(gStringVar2, ItemId_GetName(r4[0]));
+    StringCopy(gStringVar2, GetItemName(r4[0]));
     StringExpandPlaceholders(gStringVar4, gText_QuestLog_ObtainedItemInLocation);
     return (const u16 *)(r5 + 2);
 }

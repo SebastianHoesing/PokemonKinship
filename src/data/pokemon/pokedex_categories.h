@@ -33,7 +33,7 @@ static const u16 sDexCategory_GrasslandPkmn_Page5[] = {
 
 static const u16 sDexCategory_GrasslandPkmn_Page6[] = {
     SPECIES_TANGELA,
-    SPECIES_ROSELIA,
+    SPECIES_TANGROWTH,
     SPECIES_SUNKERN,
     SPECIES_SUNFLORA,
 };
@@ -70,12 +70,15 @@ static const u16 sDexCategory_GrasslandPkmn_Page11[] = {
 
 static const u16 sDexCategory_GrasslandPkmn_Page12[] = {
     SPECIES_FARFETCHD,
+    SPECIES_SIRFETCHD,
     SPECIES_LICKITUNG,
+    SPECIES_LICKILICKY,
 };
 
 static const u16 sDexCategory_GrasslandPkmn_Page13[] = {
     SPECIES_SCYTHER,
     SPECIES_SCIZOR,
+    SPECIES_KLEAVOR,
 };
 
 static const u16 sDexCategory_GrasslandPkmn_Page14[] = {
@@ -87,12 +90,14 @@ static const u16 sDexCategory_GrasslandPkmn_Page14[] = {
 
 static const u16 sDexCategory_GrasslandPkmn_Page15[] = {
     SPECIES_KANGASKHAN,
-    SPECIES_GIRAFARIG,
+    SPECIES_TAUROS,
+    SPECIES_MILTANK,
 };
 
 static const u16 sDexCategory_GrasslandPkmn_Page16[] = {
-    SPECIES_TAUROS,
-    SPECIES_MILTANK,
+    SPECIES_BUDEW,
+    SPECIES_ROSELIA,
+    SPECIES_ROSERADE,
 };
 
 static const u16 sDexCategory_GrasslandPkmn_Page17[] = {
@@ -105,18 +110,21 @@ static const u16 sDexCategory_GrasslandPkmn_Page17[] = {
 static const u16 sDexCategory_GrasslandPkmn_Page18[] = {
     SPECIES_ELEKID,
     SPECIES_ELECTABUZZ,
-    SPECIES_ELECTRIKE,
-    SPECIES_MANECTRIC,
+    SPECIES_ELECTIVIRE,
 };
 
 static const u16 sDexCategory_GrasslandPkmn_Page19[] = {
     SPECIES_ZANGOOSE,
     SPECIES_SEVIPER,
+    SPECIES_GIRAFARIG,
+    SPECIES_FARIGIRAF,
 };
 
 static const u16 sDexCategory_GrasslandPkmn_Page20[] = {
     SPECIES_PLUSLE,
     SPECIES_MINUN,
+    SPECIES_ELECTRIKE,
+    SPECIES_MANECTRIC,
 };
 
 static const u16 sDexCategory_GrasslandPkmn_Page21[] = {
@@ -126,6 +134,7 @@ static const u16 sDexCategory_GrasslandPkmn_Page21[] = {
 
 static const u16 sDexCategory_GrasslandPkmn_Page22[] = {
     SPECIES_CASTFORM,
+    SPECIES_CHINGLING,
     SPECIES_CHIMECHO,
 };
 
@@ -224,6 +233,7 @@ static const u16 sDexCategory_ForestPkmn_Page11[] = {
     SPECIES_VENONAT,
     SPECIES_VENOMOTH,
     SPECIES_YANMA,
+    SPECIES_YANMEGA,
 };
 
 static const u16 sDexCategory_ForestPkmn_Page12[] = {
@@ -262,22 +272,27 @@ static const u16 sDexCategory_ForestPkmn_Page17[] = {
 
 static const u16 sDexCategory_ForestPkmn_Page18[] = {
     SPECIES_MURKROW,
+    SPECIES_HONCHKROW,
     SPECIES_SNEASEL,
+    SPECIES_WEAVILE,
 };
 
 static const u16 sDexCategory_ForestPkmn_Page19[] = {
     SPECIES_EXEGGCUTE,
     SPECIES_EXEGGUTOR,
+    SPECIES_BONSLY,
     SPECIES_SUDOWOODO,
 };
 
 static const u16 sDexCategory_ForestPkmn_Page20[] = {
     SPECIES_AIPOM,
+    SPECIES_AMBIPOM,
     SPECIES_STANTLER,
-    SPECIES_KECLEON,
+    SPECIES_WYRDEER,
 };
 
 static const u16 sDexCategory_ForestPkmn_Page21[] = {
+    SPECIES_KECLEON,
     SPECIES_PINSIR,
     SPECIES_HERACROSS,
 };
@@ -291,11 +306,13 @@ static const u16 sDexCategory_ForestPkmn_Page22[] = {
 static const u16 sDexCategory_ForestPkmn_Page23[] = {
     SPECIES_DUSKULL,
     SPECIES_DUSCLOPS,
+    SPECIES_DUSKNOIR,
 };
 
 static const u16 sDexCategory_ForestPkmn_Page24[] = {
     SPECIES_TOGEPI,
     SPECIES_TOGETIC,
+    SPECIES_TOGEKISS,
 };
 
 static const u16 sDexCategory_ForestPkmn_Page25[] = {
@@ -428,6 +445,8 @@ static const u16 sDexCategory_SeaPkmn_Page4[] = {
 static const u16 sDexCategory_SeaPkmn_Page5[] = {
     SPECIES_SHELLDER,
     SPECIES_CLOYSTER,
+    SPECIES_MANTYKE,
+    SPECIES_MANTINE,
 };
 
 static const u16 sDexCategory_SeaPkmn_Page6[] = {
@@ -439,7 +458,6 @@ static const u16 sDexCategory_SeaPkmn_Page6[] = {
 static const u16 sDexCategory_SeaPkmn_Page7[] = {
     SPECIES_QWILFISH,
     SPECIES_CORSOLA,
-    SPECIES_MANTINE,
     SPECIES_LUVDISC,
 };
 
@@ -507,8 +525,7 @@ static const u16 sDexCategory_CavePkmn_Page2[] = {
 static const u16 sDexCategory_CavePkmn_Page3[] = {
     SPECIES_SWINUB,
     SPECIES_PILOSWINE,
-    SPECIES_SNORUNT,
-    SPECIES_GLALIE,
+    SPECIES_MAMOSWINE,
 };
 
 static const u16 sDexCategory_CavePkmn_Page4[] = {
@@ -518,14 +535,17 @@ static const u16 sDexCategory_CavePkmn_Page4[] = {
 };
 
 static const u16 sDexCategory_CavePkmn_Page5[] = {
-    SPECIES_MISDREAVUS,
     SPECIES_DUNSPARCE,
+    SPECIES_DUDUNSPARCE,
     SPECIES_NOSEPASS,
+    SPECIES_PROBOPASS,
 };
 
 static const u16 sDexCategory_CavePkmn_Page6[] = {
     SPECIES_SABLEYE,
     SPECIES_MAWILE,
+    SPECIES_MISDREAVUS,
+    SPECIES_MISMAGIUS,
 };
 
 static const u16 sDexCategory_CavePkmn_Page7[] = {
@@ -535,13 +555,16 @@ static const u16 sDexCategory_CavePkmn_Page7[] = {
 };
 
 static const u16 sDexCategory_CavePkmn_Page8[] = {
-    SPECIES_WYNAUT,
-    SPECIES_WOBBUFFET,
+    SPECIES_SNORUNT,
+    SPECIES_GLALIE,
+    SPECIES_FROSLASS,
 };
 
 static const u16 sDexCategory_CavePkmn_Page9[] = {
     SPECIES_LUNATONE,
     SPECIES_SOLROCK,
+    SPECIES_WYNAUT,
+    SPECIES_WOBBUFFET,
 };
 
 static const u16 sDexCategory_CavePkmn_Page10[] = {
@@ -559,8 +582,7 @@ static const u16 sDexCategory_MountainPkmn_Page1[] = {
 static const u16 sDexCategory_MountainPkmn_Page2[] = {
     SPECIES_MANKEY,
     SPECIES_PRIMEAPE,
-    SPECIES_SPOINK,
-    SPECIES_GRUMPIG,
+    SPECIES_ANNIHILAPE
 };
 
 static const u16 sDexCategory_MountainPkmn_Page3[] = {
@@ -578,6 +600,8 @@ static const u16 sDexCategory_MountainPkmn_Page4[] = {
 static const u16 sDexCategory_MountainPkmn_Page5[] = {
     SPECIES_CUBONE,
     SPECIES_MAROWAK,
+    SPECIES_SPOINK,
+    SPECIES_GRUMPIG,
 };
 
 static const u16 sDexCategory_MountainPkmn_Page6[] = {
@@ -595,20 +619,23 @@ static const u16 sDexCategory_MountainPkmn_Page7[] = {
 };
 
 static const u16 sDexCategory_MountainPkmn_Page8[] = {
-    SPECIES_SHUCKLE,
     SPECIES_TEDDIURSA,
     SPECIES_URSARING,
+    SPECIES_URSALUNA,
     SPECIES_DELIBIRD,
 };
 
 static const u16 sDexCategory_MountainPkmn_Page9[] = {
     SPECIES_GLIGAR,
+    SPECIES_GLISCOR,
+    SPECIES_SHUCKLE,
     SPECIES_SPINDA,
 };
 
 static const u16 sDexCategory_MountainPkmn_Page10[] = {
     SPECIES_MAGBY,
     SPECIES_MAGMAR,
+    SPECIES_MAGMORTAR,
     SPECIES_TORKOAL,
 };
 
@@ -625,6 +652,7 @@ static const u16 sDexCategory_MountainPkmn_Page12[] = {
 };
 
 static const u16 sDexCategory_MountainPkmn_Page13[] = {
+    SPECIES_MUNCHLAX,
     SPECIES_SNORLAX,
 };
 
@@ -649,18 +677,20 @@ static const u16 sDexCategory_MountainPkmn_Page17[] = {
 static const u16 sDexCategory_RoughTerrainPkmn_Page1[] = {
     SPECIES_SPEAROW,
     SPECIES_FEAROW,
+    SPECIES_SANDSHREW,
+    SPECIES_SANDSLASH,
 };
 
 static const u16 sDexCategory_RoughTerrainPkmn_Page2[] = {
-    SPECIES_SANDSHREW,
-    SPECIES_SANDSLASH,
     SPECIES_RHYHORN,
     SPECIES_RHYDON,
+    SPECIES_RHYPERIOR,
 };
 
 static const u16 sDexCategory_RoughTerrainPkmn_Page3[] = {
     SPECIES_MAGNEMITE,
     SPECIES_MAGNETON,
+    SPECIES_MAGNEZONE,
 };
 
 static const u16 sDexCategory_RoughTerrainPkmn_Page4[] = {
@@ -709,8 +739,7 @@ static const u16 sDexCategory_RoughTerrainPkmn_Page11[] = {
 static const u16 sDexCategory_UrbanPkmn_Page1[] = {
     SPECIES_MEOWTH,
     SPECIES_PERSIAN,
-    SPECIES_SNUBBULL,
-    SPECIES_GRANBULL,
+    SPECIES_PERRSERKER,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page2[] = {
@@ -723,25 +752,29 @@ static const u16 sDexCategory_UrbanPkmn_Page2[] = {
 static const u16 sDexCategory_UrbanPkmn_Page3[] = {
     SPECIES_SHUPPET,
     SPECIES_BANETTE,
+    SPECIES_SNUBBULL,
+    SPECIES_GRANBULL,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page4[] = {
     SPECIES_ABRA,
     SPECIES_KADABRA,
     SPECIES_ALAKAZAM,
+    SPECIES_SMEARGLE,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page5[] = {
     SPECIES_RALTS,
     SPECIES_KIRLIA,
     SPECIES_GARDEVOIR,
+    SPECIES_GALLADE,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page6[] = {
     SPECIES_SMOOCHUM,
     SPECIES_JYNX,
-    SPECIES_MR_MIME,
-    SPECIES_SMEARGLE,
+    SPECIES_VOLTORB,
+    SPECIES_ELECTRODE,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page7[] = {
@@ -752,19 +785,22 @@ static const u16 sDexCategory_UrbanPkmn_Page7[] = {
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page8[] = {
+    SPECIES_HAPPINY,
     SPECIES_CHANSEY,
     SPECIES_BLISSEY,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page9[] = {
-    SPECIES_VOLTORB,
-    SPECIES_ELECTRODE,
+    SPECIES_DITTO,
     SPECIES_PORYGON,
     SPECIES_PORYGON2,
+    SPECIES_PORYGON_Z,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page10[] = {
-    SPECIES_DITTO,
+    SPECIES_MIME_JR,
+    SPECIES_MR_MIME,
+    SPECIES_MR_RIME,
 };
 
 static const u16 sDexCategory_UrbanPkmn_Page11[] = {
@@ -777,6 +813,12 @@ static const u16 sDexCategory_UrbanPkmn_Page11[] = {
 static const u16 sDexCategory_UrbanPkmn_Page12[] = {
     SPECIES_ESPEON,
     SPECIES_UMBREON,
+    SPECIES_LEAFEON,
+    SPECIES_GLACEON,
+};
+
+static const u16 sDexCategory_UrbanPkmn_Page13[] = {
+    SPECIES_SYLVEON,
 };
 
 static const u16 sDexCategory_RarePkmn_Page1[] = {
@@ -972,6 +1014,7 @@ static const struct PokedexCategoryPage sDexCategory_UrbanPkmn[] = {
     DEX_CATEGORY(UrbanPkmn_Page10),
     DEX_CATEGORY(UrbanPkmn_Page11),
     DEX_CATEGORY(UrbanPkmn_Page12),
+    DEX_CATEGORY(UrbanPkmn_Page13),
 };
 
 static const struct PokedexCategoryPage sDexCategory_RarePkmn[] = {

@@ -1,23 +1,32 @@
 #ifndef GUARD_GLOBAL_H
 #define GUARD_GLOBAL_H
 
-#include "config.h"
-#include "gba/gba.h"
 #include <string.h>
+#include <limits.h>
+#include "config/general.h" // we need to define config before gba headers as print stuff needs the functions nulled before defines.
+#include "gba/gba.h"
+#include "siirtc.h"
+#include "fpmath.h"
+#include "metaprogram.h"
 #include "constants/global.h"
 #include "constants/flags.h"
 #include "constants/vars.h"
 #include "constants/species.h"
 #include "constants/pokedex.h"
-#include "constants/easy_chat.h"
+#include "constants/berry.h"
+#include "constants/maps.h"
+#include "constants/pokemon.h"
 #include "constants/rgb.h"
+#include "constants/easy_chat.h"
+#include "constants/items.h"
+#include "config/save.h"
 
 // Prevent cross-jump optimization.
 #define BLOCK_CROSS_JUMP asm("");
 
 // to help in decompiling
-#define asm_comment(x) asm volatile("@ -- " x " -- ")
 #define asm_unified(x) asm(".syntax unified\n" x "\n.syntax divided")
+#define NAKED __attribute__((naked))
 
 #if __STDC_VERSION__ < 202311L
 #define asm __asm__
@@ -35,6 +44,7 @@
 #define INCBIN_S8   INCBIN
 #define INCBIN_S16  INCBIN
 #define INCBIN_S32  INCBIN
+#define INCBIN_COMP INCBIN
 #endif // IDE support
 
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof((array)[0]))
@@ -55,13 +65,13 @@
 #define Q_8_8(n) ((s16)((n) * 256))
 
 // Converts a number from Q8.8 fixed-point format
-#define Q_8_8_TO_INT(n) ((s16)((n) >> 8))
+// #define Q_8_8_TO_INT(n) ((s16)((n) >> 8))
 
 // Converts a number to Q4.12 fixed-point format
-#define Q_4_12(n)  ((s16)((n) * 4096))
+// #define Q_4_12(n)  ((s16)((n) * 4096))
 
 // Converts a number from Q4.12 fixed-point format
-#define Q_4_12_TO_INT(n) ((s16)((n) >> 12))
+// #define Q_4_12_TO_INT(n) ((s16)((n) >> 12))
 
 // Converts a number to QN.S fixed-point format (16-bits)
 #define Q_N_S(s, n) ((s16)((n) * (1 << (s))))
@@ -85,10 +95,18 @@
 // Used in cases where division by 0 can occur in the retail version.
 // Avoids invalid opcodes on some emulators, and the otherwise UB.
 #ifdef UBFIX
-#define SAFE_DIV(a, b) ((b) ? (a) / (b) : 0)
+#define SAFE_DIV(a, b) (((b) != 0) ? (a) / (b) : 0)
 #else
 #define SAFE_DIV(a, b) ((a) / (b))
 #endif
+
+#define IS_POW_OF_TWO(n) (((n) & ((n)-1)) == 0)
+
+// The below macro does a%n, but (to match) will switch to a&(n-1) if n is a power of 2.
+// There are cases where GF does a&(n-1) where we would really like to have a%n, because
+// if n is changed to a value that isn't a power of 2 then a&(n-1) is unlikely to work as
+// intended, and a%n for powers of 2 isn't always optimized to use &.
+#define MOD(a, n)(((n) & ((n)-1)) ? ((a) % (n)) : ((a) & ((n)-1)))
 
 // Extracts the upper 16 bits of a 32-bit number
 #define HIHALF(n) (((n) & 0xFFFF0000) >> 16)
@@ -120,12 +138,12 @@
 #define JOY_NEW(button)      TEST_BUTTON(gMain.newKeys,  button)
 #define JOY_HELD(button)     TEST_BUTTON(gMain.heldKeys, button)
 #define JOY_HELD_RAW(button) TEST_BUTTON(gMain.heldKeysRaw, button)
-#define JOY_REPT(button)     TEST_BUTTON(gMain.newAndRepeatedKeys, button)
+#define JOY_REPEAT(button)   TEST_BUTTON(gMain.newAndRepeatedKeys, button)
 
 extern u8 gStringVar1[];
 extern u8 gStringVar2[];
 extern u8 gStringVar3[];
-extern u8 gStringVar4[];
+extern u8 gStringVar4[1000];
 
 #define DIV_ROUND_UP(val, roundBy)(((val) / (roundBy)) + (((val) % (roundBy)) ? 1 : 0))
 
@@ -135,16 +153,52 @@ extern u8 gStringVar4[];
 #define NUM_FLAG_BYTES ROUND_BITS_TO_BYTES(FLAGS_COUNT)
 #define NUM_ADDITIONAL_PHRASE_BYTES ROUND_BITS_TO_BYTES(NUM_ADDITIONAL_PHRASES)
 
-// This returns the number of arguments passed to it (up to 8).
-#define NARG_8(...) NARG_8_(_, ##__VA_ARGS__, 8, 7, 6, 5, 4, 3, 2, 1, 0)
-#define NARG_8_(_, a, b, c, d, e, f, g, h, N, ...) N
+// Calls m0/m1/.../m8 depending on how many arguments are passed.
+// #define VARARG_8(m, ...) CAT(m, NARG_8(__VA_ARGS__))(__VA_ARGS__)
 
-#define CAT(a, b) CAT_(a, b)
-#define CAT_(a, b) a ## b
+// This returns the number of arguments passed to it (up to 8).
+// #define NARG_8(...) NARG_8_(_, ##__VA_ARGS__, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+// #define NARG_8_(_, a, b, c, d, e, f, g, h, N, ...) N
+
+// #define CAT(a, b) CAT_(a, b)
+// #define CAT_(a, b) a ## b
+
+// #define STR(a) STR_(a)
+// #define STR_(a) #a
+
+// Converts a string to a compound literal, essentially making it a pointer to const u8
+// #define COMPOUND_STRING(str) (const u8[]) _(str)
 
 // This produces an error at compile-time if expr is zero.
 // It looks like file.c:line: size of array `id' is negative
 #define STATIC_ASSERT(expr, id) typedef char id[(expr) ? 1 : -1];
+
+#define FEATURE_FLAG_ASSERT(flag, id) STATIC_ASSERT(flag > TEMP_FLAGS_END || flag == 0, id)
+
+#ifndef NDEBUG
+static inline void CycleCountStart()
+{
+    REG_TM2CNT_H = 0;
+    REG_TM3CNT_H = 0;
+
+    REG_TM2CNT_L = 0;
+    REG_TM3CNT_L = 0;
+
+    // init timers (tim3 count up mode, tim2 every clock cycle)
+    REG_TM3CNT_H = TIMER_ENABLE | TIMER_COUNTUP;
+    REG_TM2CNT_H = TIMER_1CLK | TIMER_ENABLE;
+}
+
+static inline u32 CycleCountEnd()
+{
+    // stop timers
+    REG_TM2CNT_H = 0;
+    REG_TM3CNT_H = 0;
+
+    // return result
+    return REG_TM2CNT_L | (REG_TM3CNT_L << 16u);
+}
+#endif
 
 struct Coords8
 {
@@ -190,6 +244,25 @@ struct Time
     /*0x04*/ s8 seconds;
 };
 
+#include "constants/items.h"
+#define ITEM_FLAGS_COUNT ((ITEMS_COUNT / 8) + ((ITEMS_COUNT % 8) ? 1 : 0))
+
+struct SaveBlock3
+{
+#if OW_USE_FAKE_RTC
+    struct SiiRtcInfo fakeRTC;
+#endif
+#if OW_SHOW_ITEM_DESCRIPTIONS == OW_ITEM_DESCRIPTIONS_FIRST_TIME
+    u8 itemFlags[ITEM_FLAGS_COUNT];
+#endif
+#if USE_DEXNAV_SEARCH_LEVELS == TRUE
+    u8 dexNavSearchLevels[NUM_SPECIES];
+#endif
+    u8 dexNavChain;
+};
+
+extern struct SaveBlock3 *gSaveBlock3Ptr;
+
 struct Pokedex
 {
     /*0x00*/ u8 order;
@@ -198,9 +271,6 @@ struct Pokedex
     /*0x03*/ u8 nationalMagic; // set to 0xB9 when national dex is first enabled
     /*0x04*/ u32 unownPersonality; // set when you first see Unown
     /*0x08*/ u32 spindaPersonality; // set when you first see Spinda
-    /*0x0C*/ u32 unknown3;
-    /*0x10*/ u8 owned[DEX_FLAGS_NO];
-    /*0x44*/ u8 seen[DEX_FLAGS_NO];
 };
 
 struct PokemonJumpRecords
@@ -304,8 +374,10 @@ struct BattleTowerData // Leftover from R/S
     /*0x03D8, 0x0488*/ u16 firstMonSpecies; // species of the first pokemon in the player's battle tower party
     /*0x03DA, 0x048A*/ u16 defeatedBySpecies; // species of the pokemon that defated the player
     /*0x03DC, 0x048C*/ u8 defeatedByTrainerName[8];
-    /*0x03E4, 0x0494*/ u8 firstMonNickname[POKEMON_NAME_LENGTH]; // nickname of the first pokemon in the player's battle tower party
+    /*0x03E4, 0x0494*/ u8 firstMonNickname[VANILLA_POKEMON_NAME_LENGTH]; // nickname of the first pokemon in the player's battle tower party
+#if FREE_BATTLE_TOWER_E_READER == FALSE
     /*0x03F0, 0x04A0*/ struct BattleTowerEReaderTrainer ereaderTrainer;
+#endif //FREE_BATTLE_TOWER_E_READER
     /*0x04AC, 0x055C*/ u8 battleTowerLevelType:1; // 0 = level 50; 1 = level 100
     /*0x04AC, 0x055C*/ u8 unk_554:1;
     /*0x04AD, 0x055D*/ u8 battleOutcome;
@@ -342,7 +414,6 @@ struct SaveBlock2
               u16 optionsBattleSceneOff:1; // whether battle animations are disabled
               u16 regionMapZoom:1; // whether the map is zoomed in
     /*0x018*/ struct Pokedex pokedex;
-    /*0x090*/ u8 filler_90[0x8];
     /*0x098*/ struct Time localTimeOffset;
     /*0x0A0*/ struct Time lastBerryTreeUpdate;
     /*0x0A8*/ u32 gcnLinkFlags; // Read by Pokemon Colosseum/XD
@@ -350,12 +421,16 @@ struct SaveBlock2
     /*0x0AD*/ bool8 unkFlag2; // Set FALSE, never read
     /*0x0B0*/ struct BattleTowerData battleTower;
     /*0x898*/ u16 mapView[0x100];
+#if FREE_LINK_BATTLE_RECORDS == FALSE
     /*0xA98*/ struct LinkBattleRecords linkBattleRecords;
+#endif //FREE_LINK_BATTLE_RECORDS
     /*0xAF0*/ struct BerryCrush berryCrush;
+#if FREE_POKEMON_JUMP == FALSE
     /*0xB00*/ struct PokemonJumpRecords pokeJump;
+#endif //FREE_POKEMON_JUMP
     /*0xB10*/ struct BerryPickingResults berryPick;
-    /*0xB20*/ u8 filler_B20[0x400];
-    /*0xF20*/ u32 encryptionKey;
+    /*0x169C*/ struct BerryTree berryTrees[BERRY_TREES_COUNT]; // moved to SaveBlock2 due to QuestLogScene taking up SaveBlock1
+    /*0x???*/ u8 filler_90[212];
 }; // size: 0xF24
 
 extern struct SaveBlock2 *gSaveBlock2Ptr;
@@ -421,14 +496,15 @@ struct Roamer
     /*0x08*/ u16 species;
     /*0x0A*/ u16 hp;
     /*0x0C*/ u8 level;
-    /*0x0D*/ u8 status;
+    /*0x0D*/ u8 statusA;
     /*0x0E*/ u8 cool;
     /*0x0F*/ u8 beauty;
     /*0x10*/ u8 cute;
     /*0x11*/ u8 smart;
     /*0x12*/ u8 tough;
     /*0x13*/ bool8 active;
-    /*0x14*/ u8 filler[0x8];
+    /*0x14*/ u8 statusB; // Stores frostbite
+    /*0x14*/ u8 filler[0x7];
 };
 
 struct RamScriptData
@@ -594,7 +670,7 @@ struct QuestLogObjectEvent
     /*0x02*/ u8 unused:3;
     /*0x03*/ u8 currentElevation:4;
     /*0x03*/ u8 previousElevation:4;
-    /*0x04*/ u8 graphicsId;
+    /*0x04*/ u16 graphicsId;
     /*0x05*/ u8 movementType;
     /*0x06*/ u8 trainerType;
     /*0x07*/ u8 localId;
@@ -619,7 +695,7 @@ struct QuestLogScene
     /*0x0004*/ s16 x;
     /*0x0006*/ s16 y;
     /*0x0008*/ struct QuestLogObjectEvent objectEvents[OBJECT_EVENTS_COUNT];
-    /*0x0148*/ u8 flags[NUM_FLAG_BYTES];
+    /*0x0148*/ u8 ALIGNED(2) flags[NUM_FLAG_BYTES];
     /*0x02c8*/ u16 vars[VARS_COUNT];
     /*0x0468*/ struct QuestLogObjectEventTemplate objectEventTemplates[OBJECT_EVENT_TEMPLATES_COUNT];
     /*0x0568*/ u16 script[128];
@@ -707,7 +783,7 @@ struct TrainerTower
 struct TrainerNameRecord
 {
     u32 trainerId;
-    u8 trainerName[PLAYER_NAME_LENGTH + 1];
+    u8 ALIGNED(2) trainerName[PLAYER_NAME_LENGTH + 1];
 };
 
 // For external event data storage. The majority of these may have never been used.
@@ -756,6 +832,15 @@ struct ExternalEventFlags
 
 } __attribute__((packed));/*size = 0x15*/
 
+struct Bag
+{
+    struct ItemSlot items[BAG_ITEMS_COUNT];
+    struct ItemSlot keyItems[BAG_KEYITEMS_COUNT];
+    struct ItemSlot pokeBalls[BAG_POKEBALLS_COUNT];
+    struct ItemSlot TMsHMs[BAG_TMHM_COUNT];
+    struct ItemSlot berries[BAG_BERRIES_COUNT];
+};
+
 struct SaveBlock1
 {
     /*0x0000*/ struct Coords16 pos;
@@ -775,19 +860,15 @@ struct SaveBlock1
     /*0x0294*/ u16 coins;
     /*0x0296*/ u16 registeredItem; // registered for use with SELECT button
     /*0x0298*/ struct ItemSlot pcItems[PC_ITEMS_COUNT];
-    /*0x0310*/ struct ItemSlot bagPocket_Items[BAG_ITEMS_COUNT];
-    /*0x03b8*/ struct ItemSlot bagPocket_KeyItems[BAG_KEYITEMS_COUNT];
-    /*0x0430*/ struct ItemSlot bagPocket_PokeBalls[BAG_POKEBALLS_COUNT];
-    /*0x0464*/ struct ItemSlot bagPocket_TMHM[BAG_TMHM_COUNT];
-    /*0x054c*/ struct ItemSlot bagPocket_Berries[BAG_BERRIES_COUNT];
-    /*0x05F8*/ u8 seen1[DEX_FLAGS_NO];
+    /*0x560*/ struct Bag bag;
     /*0x062C*/ u16 berryBlenderRecords[3]; // unused
-    /*0x0632*/ u8 unused_632[6];
+#if FREE_MATCH_CALL == FALSE
     /*0x0638*/ u16 trainerRematchStepCounter;
-    /*0x063A*/ u8 ALIGNED(2) trainerRematches[MAX_REMATCH_ENTRIES];
+    /*0x063A*/ u8 trainerRematches[MAX_REMATCH_ENTRIES];
+#endif //FREE_MATCH_CALL
     /*0x06A0*/ struct ObjectEvent objectEvents[OBJECT_EVENTS_COUNT];
     /*0x08E0*/ struct ObjectEventTemplate objectEventTemplates[OBJECT_EVENT_TEMPLATES_COUNT];
-    /*0x0EE0*/ u8 flags[NUM_FLAG_BYTES];
+    /*0x0EE0*/ u8 ALIGNED(2) flags[NUM_FLAG_BYTES];
     /*0x1000*/ u16 vars[VARS_COUNT];
     /*0x1200*/ u32 gameStats[NUM_GAME_STATS];
     /*0x1300*/ struct QuestLogScene questLog[QUEST_LOG_SCENE_COUNT];
@@ -803,22 +884,31 @@ struct SaveBlock1
     /*0x309C*/ u8 giftRibbons[GIFT_RIBBONS_COUNT];
     /*0x30A7*/ struct ExternalEventData externalEventData;
     /*0x30BB*/ struct ExternalEventFlags externalEventFlags;
-    /*0x30D0*/ struct Roamer roamer;
+    /*0x30D0*/ struct Roamer roamer[ROAMER_COUNT];
+#if FREE_ENIGMA_BERRY == FALSE
     /*0x30EC*/ struct EnigmaBerry enigmaBerry;
+#endif //FREE_ENIGMA_BERRY
+#if FREE_MYSTERY_GIFT == FALSE
     /*0x3120*/ struct MysteryGiftSave mysteryGift;
-    /*0x348C*/ u8 unused_348C[400];
+#endif //FREE_MYSTERY_GIFT
+    /*0x????*/ u8 dexSeen[DEX_FLAGS_NO];
+               u8 dexCaught[DEX_FLAGS_NO];
+#if FREE_MYSTERY_EVENT_BUFFERS == FALSE
     /*0x361C*/ struct RamScript ramScript;
+#endif //FREE_MYSTERY_EVENT_BUFFERS
     /*0x3A08*/ struct RecordMixingGift recordMixingGift; // unused
-    /*0x3A18*/ u8 seen2[DEX_FLAGS_NO];
     /*0x3A4C*/ u8 rivalName[PLAYER_NAME_LENGTH + 1];
     /*0x3A54*/ struct FameCheckerSaveData fameChecker[NUM_FAMECHECKER_PERSONS];
-    /*0x3A94*/ u8 unused_3A94[64];
+#if FREE_UNION_ROOM_CHAT == FALSE
     /*0x3AD4*/ u8 registeredTexts[UNION_ROOM_KB_ROW_COUNT][21];
+#endif //FREE_UNION_ROOM_CHAT
     /*0x3BA8*/ struct TrainerNameRecord trainerNameRecords[20];
     /*0x3C98*/ struct DaycareMon route5DayCareMon;
-    /*0x3D24*/ u8 unused_3D24[16];
+#if FREE_TRAINER_HILL == FALSE
     /*0x3D34*/ u32 towerChallengeId;
     /*0x3D38*/ struct TrainerTower trainerTower[NUM_TOWER_CHALLENGE_TYPES];
+#endif //FREE_TRAINER_HILL
+    /*0x3D24*/ u8 unusedSB1[0x1C];
 }; // size: 0x3D68
 
 struct MapPosition

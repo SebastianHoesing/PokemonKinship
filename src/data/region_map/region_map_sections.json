@@ -956,7 +956,7 @@
       "height": 3
     },
     {
-      "id": "MAPSEC_NAVEL_ROCK",
+      "id": "MAPSEC_NAVEL_ROCK_FRLG",
       "name": "NAVEL ROCK",
       "x": 10,
       "y": 8,
@@ -1029,7 +1029,7 @@
       "height": 1
     },
     {
-      "id": "MAPSEC_ALTERING_CAVE",
+      "id": "MAPSEC_ALTERING_CAVE_FRLG",
       "name": "ALTERING CAVE",
       "x": 0,
       "y": 0,
@@ -1061,7 +1061,7 @@
       "height": 1
     },
     {
-      "id": "MAPSEC_BIRTH_ISLAND",
+      "id": "MAPSEC_BIRTH_ISLAND_FRLG",
       "name": "BIRTH ISLAND",
       "x": 18,
       "y": 13,

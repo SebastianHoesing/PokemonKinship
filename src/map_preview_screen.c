@@ -1,7 +1,6 @@
 #include "global.h"
 #include "gflib.h"
 #include "quest_log.h"
-#include "new_menu_helpers.h"
 #include "region_map.h"
 #include "menu.h"
 #include "field_fadetransition.h"
@@ -243,7 +242,7 @@ static const struct MapPreviewScreen sMapPreviewScreenData[MPS_COUNT] = {
         .palptr = sLostCaveMapPreviewPalette
     },
     [MPS_ALTERING_CAVE] = {
-        .mapsec = MAPSEC_ALTERING_CAVE,
+        .mapsec = MAPSEC_ALTERING_CAVE_FRLG,
         .type = MPS_TYPE_CAVE,
         .flagId = FLAG_WORLD_MAP_SIX_ISLAND_ALTERING_CAVE,
         .tilesptr = sAlteringCaveMapPreviewTiles,

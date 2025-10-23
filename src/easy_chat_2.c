@@ -410,7 +410,6 @@ static const struct EasyChatScreenTemplate sEasyChatScreenTemplates[] = {
 static bool8 EasyChat_AllocateResources(u8 type, u16 *words)
 {
     u8 templateId;
-    int i;
 
     sEasyChatScreen = malloc(sizeof(*sEasyChatScreen));
     if (sEasyChatScreen == NULL)
@@ -629,16 +628,16 @@ static u16 HandleJoypad_SelectGroup(void)
     if (JOY_NEW(SELECT_BUTTON))
         return ToggleGroupAlphaMode();
 
-    if (JOY_REPT(DPAD_UP))
+    if (JOY_REPEAT(DPAD_UP))
         return SelectGroupCursorAction(2);
 
-    if (JOY_REPT(DPAD_DOWN))
+    if (JOY_REPEAT(DPAD_DOWN))
         return SelectGroupCursorAction(3);
 
-    if (JOY_REPT(DPAD_LEFT))
+    if (JOY_REPEAT(DPAD_LEFT))
         return SelectGroupCursorAction(1);
 
-    if (JOY_REPT(DPAD_RIGHT))
+    if (JOY_REPEAT(DPAD_RIGHT))
         return SelectGroupCursorAction(0);
 
     return 0;
@@ -661,16 +660,16 @@ static u16 HandleJoypad_SelectWord(void)
     if (JOY_NEW(SELECT_BUTTON))
         return SelectWordCursorAction(5);
 
-    if (JOY_REPT(DPAD_UP))
+    if (JOY_REPEAT(DPAD_UP))
         return SelectWordCursorAction(2);
 
-    if (JOY_REPT(DPAD_DOWN))
+    if (JOY_REPEAT(DPAD_DOWN))
         return SelectWordCursorAction(3);
 
-    if (JOY_REPT(DPAD_LEFT))
+    if (JOY_REPEAT(DPAD_LEFT))
         return SelectWordCursorAction(1);
 
-    if (JOY_REPT(DPAD_RIGHT))
+    if (JOY_REPEAT(DPAD_RIGHT))
         return SelectWordCursorAction(0);
 
     return 0;
@@ -678,8 +677,6 @@ static u16 HandleJoypad_SelectWord(void)
 
 static u16 Cancel_HandleYesNoMenu(void)
 {
-    u8 var0;
-
     switch (Menu_ProcessInputNoWrapClearOnChoose())
     {
     case MENU_B_PRESSED: // B Button
@@ -1282,11 +1279,6 @@ u8 GetECSelectWordRowsAbove(void)
 u8 GetECSelectWordNumRows(void)
 {
     return sEasyChatScreen->selectWordNumRows;
-}
-
-static u8 UnusedDummy(void)
-{
-    return 0;
 }
 
 bool32 ShouldDrawECUpArrow(void)

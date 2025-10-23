@@ -19,7 +19,6 @@
 #include "battle_interface.h"
 #include "pokemon_summary_screen.h"
 #include "pokemon_storage_system.h"
-#include "new_menu_helpers.h"
 #include "trade_scene.h"
 #include "constants/songs.h"
 #include "constants/moves.h"
@@ -209,17 +208,6 @@ static void ComputePartyHPBarLevels(u8 side);
 static void SetTradePartyHPBarSprites(void);
 static void SaveTradeGiftRibbons(void);
 static u32 CanTradeSelectedMon(struct Pokemon * party, int partyCount, int cursorPos);
-
-static const size_t sSizesAndOffsets[] = {
-    sizeof(struct SaveBlock2),
-    sizeof(struct SaveBlock1),
-    sizeof(struct MapLayout),
-    0x530, // unk
-    0x34, // unk
-    sizeof(struct Mail),
-    sizeof(struct Pokemon),
-    0x528 // unk
-};
 
 static const u16 sTradeMovesBoxTilemap[] = INCBIN_U16("graphics/trade/moves_box_map.bin");
 static const u16 sTradePartyBoxTilemap[] = INCBIN_U16("graphics/trade/party_box_map.bin");
@@ -777,7 +765,6 @@ static const u8 sSelectedMonLevelGenderCoords[][2] = {
 
 static void InitTradeMenu(void)
 {
-    static u16 dummy;
 
     ResetSpriteData();
     FreeAllSpritePalettes();
@@ -797,7 +784,6 @@ static void InitTradeMenu(void)
     {
         int i;
         DeactivateAllTextPrinters();
-        dummy = 590; // ?
         for (i = 0; i < ARRAY_COUNT(sWindowTemplates) - 1; i++)
         {
             ClearWindowTilemap(i);
@@ -805,7 +791,7 @@ static void InitTradeMenu(void)
         }
         FillBgTilemapBufferRect(0, 0, 0, 0, 30, 20, 15);
         LoadStdWindowGfx(0, 0x014, BG_PLTT_ID(12));
-        LoadUserWindowGfx(2, 0x001, BG_PLTT_ID(14));
+        LoadUserWindowBorderGfx(2, 0x001, BG_PLTT_ID(14));
         LoadMonIconPalettes();
         sTradeMenu->bufferPartyState = 0;
         sTradeMenu->callbackId = CB_MAIN_MENU;
@@ -953,8 +939,7 @@ static void CB2_CreateTradeMenu(void)
                                                                 (sTradeMonSpriteCoords[i][0] * 8) + 14,
                                                                 (sTradeMonSpriteCoords[i][1] * 8) - 12,
                                                                 1,
-                                                                GetMonData(mon, MON_DATA_PERSONALITY),
-                                                                TRUE);
+                                                                GetMonData(mon, MON_DATA_PERSONALITY));
         }
 
         for (i = 0; i < sTradeMenu->partyCounts[TRADE_PARTNER]; i++)
@@ -965,8 +950,7 @@ static void CB2_CreateTradeMenu(void)
                                                                 (sTradeMonSpriteCoords[i + PARTY_SIZE][0] * 8) + 14,
                                                                 (sTradeMonSpriteCoords[i + PARTY_SIZE][1] * 8) - 12,
                                                                 1,
-                                                                GetMonData(mon, MON_DATA_PERSONALITY),
-                                                                FALSE);
+                                                                GetMonData(mon, MON_DATA_PERSONALITY));
         }
         gMain.state++;
         break;
@@ -1150,9 +1134,7 @@ void CB2_ReturnToTradeMenuFromSummary(void)
                 sTradeMonSpriteCoords[i][0] * 8 + 14,
                 sTradeMonSpriteCoords[i][1] * 8 - 12,
                 1,
-                GetMonData(&gPlayerParty[i], MON_DATA_PERSONALITY),
-                TRUE
-            );
+                GetMonData(&gPlayerParty[i], MON_DATA_PERSONALITY));
         }
         for (i = 0; i < sTradeMenu->partyCounts[TRADE_PARTNER]; i++)
         {
@@ -1162,9 +1144,7 @@ void CB2_ReturnToTradeMenuFromSummary(void)
                 sTradeMonSpriteCoords[i + PARTY_SIZE][0] * 8 + 14,
                 sTradeMonSpriteCoords[i + PARTY_SIZE][1] * 8 - 12,
                 1,
-                GetMonData(&gEnemyParty[i], MON_DATA_PERSONALITY),
-                FALSE
-            );
+                GetMonData(&gEnemyParty[i], MON_DATA_PERSONALITY));
         }
         gMain.state++;
         break;
@@ -1358,7 +1338,7 @@ static void CB2_TradeMenu(void)
 
     SetGpuReg(REG_OFFSET_BG2HOFS, sTradeMenu->bg2hofs++);
     SetGpuReg(REG_OFFSET_BG3HOFS, sTradeMenu->bg3hofs--);
-    RunTextPrinters_CheckPrinter0Active();
+    RunTextPrintersAndIsPrinter0Active();
     RunTasks();
     AnimateSprites();
     BuildOamBuffer();
@@ -1563,7 +1543,7 @@ static bool8 BufferTradeParties(void)
                     GetMonData(mon, MON_DATA_NICKNAME, name);
 
                     if (!StringCompareWithoutExtCtrlCodes(name, sText_ShedinjaJP))
-                        SetMonData(mon, MON_DATA_NICKNAME, gSpeciesNames[SPECIES_SHEDINJA]);
+                        SetMonData(mon, MON_DATA_NICKNAME, gSpeciesInfo[SPECIES_SHEDINJA].speciesName);
                 }
             }
         }
@@ -1831,13 +1811,13 @@ static void CB_ProcessMenuInput(void)
 {
     int i;
 
-    if (JOY_REPT(DPAD_UP))
+    if (JOY_REPEAT(DPAD_UP))
         TradeMenuMoveCursor(&sTradeMenu->cursorPosition, DIR_UP);
-    else if (JOY_REPT(DPAD_DOWN))
+    else if (JOY_REPEAT(DPAD_DOWN))
         TradeMenuMoveCursor(&sTradeMenu->cursorPosition, DIR_DOWN);
-    else if (JOY_REPT(DPAD_LEFT))
+    else if (JOY_REPEAT(DPAD_LEFT))
         TradeMenuMoveCursor(&sTradeMenu->cursorPosition, DIR_LEFT);
-    else if (JOY_REPT(DPAD_RIGHT))
+    else if (JOY_REPEAT(DPAD_RIGHT))
         TradeMenuMoveCursor(&sTradeMenu->cursorPosition, DIR_RIGHT);
 
     if (JOY_NEW(A_BUTTON))
@@ -1849,8 +1829,8 @@ static void CB_ProcessMenuInput(void)
             // Selected pokemon in player's party
             DrawTextBorderOuter(1, 1, 14);
             FillWindowPixelBuffer(1, PIXEL_FILL(1));
-            PrintMenuTable(1, FONT_NORMAL_COPY_2, 16, ARRAY_COUNT(sMenuAction_SummaryTrade), sMenuAction_SummaryTrade);
-            Menu_InitCursor(1, FONT_NORMAL_COPY_2, 0, 0, 16, 2, 0);
+            PrintMenuActionTextsAtTop(1, FONT_NORMAL_COPY_2, 16, ARRAY_COUNT(sMenuAction_SummaryTrade), sMenuAction_SummaryTrade);
+            InitMenuNormal(1, FONT_NORMAL_COPY_2, 0, 0, 16, 2, 0);
             PutWindowTilemap(1);
             CopyWindowToVram(1, COPYWIN_FULL);
             sTradeMenu->callbackId = CB_SELECTED_MON;
@@ -1864,7 +1844,7 @@ static void CB_ProcessMenuInput(void)
         else if (sTradeMenu->cursorPosition == PARTY_SIZE * 2)
         {
             // Selected Cancel
-            CreateYesNoMenu(&sWindowTemplate_YesNo, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
+            CreateYesNoMenuAtPos(&sWindowTemplate_YesNo, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
             sTradeMenu->callbackId = CB_CANCEL_TRADE_PROMPT;
             DrawBottomRowText(sActionTexts[TEXT_CANCEL_TRADE], (void *)OBJ_VRAM0 + sTradeMenu->bottomTextTileStart * 32, 24);
         }
@@ -1889,7 +1869,7 @@ static void RedrawChooseAPokemonWindow(void)
 
 static void CB_ProcessSelectedMonInput(void)
 {
-    switch (Menu_ProcessInputNoWrapAround())
+    switch (Menu_ProcessInputNoWrap())
     {
     case MENU_B_PRESSED:
         PlaySE(SE_SELECT);
@@ -2085,7 +2065,7 @@ static void CB_InitConfirmTradePrompt(void)
     sTradeMenu->timer++;
     if (sTradeMenu->timer > 120)
     {
-        CreateYesNoMenu(&sWindowTemplate_YesNo, FONT_NORMAL_COPY_2, 0, 2, 1, 14, 0);
+        CreateYesNoMenuAtPos(&sWindowTemplate_YesNo, FONT_NORMAL_COPY_2, 0, 2, 1, 14, 0);
         sTradeMenu->timer = 0;
         sTradeMenu->callbackId = CB_CONFIRM_TRADE_PROMPT;
     }
@@ -2237,7 +2217,7 @@ static void SetSelectedMon(u8 cursorPosition)
 static void DrawSelectedMonScreen(u8 whichParty)
 {
     s8 nameStringWidth;
-    u8 nickname[20];
+    u8 nickname[POKEMON_NAME_BUFFER_SIZE];
     u8 movesString[56];
     u8 i;
     u8 partyIdx;
@@ -2323,7 +2303,7 @@ static void DrawSelectedMonScreen(u8 whichParty)
 
 static u8 GetMonNicknameWidth(u8 *dest, u8 whichParty, u8 partyIdx)
 {
-    u8 nickname[POKEMON_NAME_LENGTH];
+    u8 nickname[POKEMON_NAME_LENGTH + 1];
     if (whichParty == TRADE_PLAYER)
         GetMonData(&gPlayerParty[partyIdx], MON_DATA_NICKNAME, nickname);
     else
@@ -2352,7 +2332,7 @@ static void BufferMovesString(u8 *movesString, u8 whichParty, u8 partyIdx)
         for (i = 0; i < MAX_MON_MOVES; i++)
         {
             if (moves[i] != MOVE_NONE)
-                StringAppend(movesString, gMoveNames[moves[i]]);
+                StringAppend(movesString, gMovesInfo[moves[i]].name);
 
             StringAppend(movesString, sText_Newline);
         }
@@ -2378,8 +2358,8 @@ static void PrintPartyMonNickname(u8 whichParty, u8 windowId, const u8 *str)
 
 static void PrintPartyNicknames(u8 whichParty)
 {
-    u8 buff[20];
-    u8 nickname[30];
+    u8 buff[POKEMON_NAME_BUFFER_SIZE];
+    u8 nickname[max(32, POKEMON_NAME_BUFFER_SIZE)];
     struct Pokemon * party = (whichParty == TRADE_PLAYER) ? gPlayerParty : gEnemyParty;
     u8 i;
     for (i = 0; i < sTradeMenu->partyCounts[whichParty]; i++)
@@ -2395,7 +2375,7 @@ static void PrintLevelAndGender(u8 whichParty, u8 monIdx, u8 x, u8 y, u8 winLeft
     u8 level;
     u32 symbolTile;
     u8 gender;
-    u8 nickname[POKEMON_NAME_LENGTH];
+    u8 nickname[POKEMON_NAME_LENGTH + 1];
 
     CopyToBgTilemapBufferRect_ChangePalette(1, gTradeMenuMonBox_Tilemap, winLeft, winTop, 6, 3, 0);
     CopyBgTilemapBufferToVram(1);
@@ -2754,23 +2734,11 @@ static u32 CanTradeSelectedMon(struct Pokemon * playerParty, int partyCount, int
     // Cant trade Eggs or non-Kanto mons if player doesn't have National Dex
     if (!IsNationalPokedexEnabled())
     {
-        // See comment below
-    #ifdef BUGFIX
         if (species2[monIdx] == SPECIES_EGG)
             return CANT_TRADE_EGG_YET;
-    #endif
 
-        if (species2[monIdx] > KANTO_SPECIES_END)
+        if (!IsSpeciesInKantoDex(species2[monIdx]))
             return CANT_TRADE_NATIONAL;
-
-        // This is meant to be SPECIES_EGG. There are obviously no circumstances
-        // where you're allowed to trade SPECIES_NONE, so it wouldn't make sense to
-        // only check this if the National Dex is missing. SPECIES_EGG will accidentally
-        // be handled instead by the conditional above. Both of these problems are fixed in Emerald.
-    #ifndef BUGFIX
-        if (species2[monIdx] == SPECIES_NONE)
-            return CANT_TRADE_EGG_YET;
-    #endif
     }
 
     partner = &gLinkPlayers[GetMultiplayerId() ^ 1];
@@ -2783,16 +2751,14 @@ static u32 CanTradeSelectedMon(struct Pokemon * playerParty, int partyCount, int
             if (species2[monIdx] == SPECIES_EGG)
                 return CANT_TRADE_PARTNER_EGG_YET;
 
-            if (species2[monIdx] > KANTO_SPECIES_END)
+            if (!IsSpeciesInKantoDex(species2[monIdx]))
                 return CANT_TRADE_INVALID_MON;
         }
     }
 
-    if (species[monIdx] == SPECIES_DEOXYS || species[monIdx] == SPECIES_MEW)
-    {
-        if (!GetMonData(&playerParty[monIdx], MON_DATA_MODERN_FATEFUL_ENCOUNTER))
-            return CANT_TRADE_INVALID_MON;
-    }
+    // Can't trade specific species
+    if (gSpeciesInfo[species[monIdx]].cannotBeTraded)
+        return CANT_TRADE_INVALID_MON;
 
     // Make Eggs not count for numMonsLeft
     for (i = 0; i < partyCount; i++)
@@ -2918,15 +2884,15 @@ int GetUnionRoomTradeMessageId(struct RfuGameCompatibilityData player, struct Rf
         if (playerSpecies2 == SPECIES_EGG)
             return UR_TRADE_MSG_EGG_CANT_BE_TRADED;
 
-        if (playerSpecies2 > KANTO_SPECIES_END)
+        if (!IsSpeciesInKantoDex(playerSpecies2))
             return UR_TRADE_MSG_MON_CANT_BE_TRADED_2;
 
-        if (partnerSpecies > KANTO_SPECIES_END)
+        if (!IsSpeciesInKantoDex(partnerSpecies))
             return UR_TRADE_MSG_PARTNERS_MON_CANT_BE_TRADED;
     }
 
     // If the partner doesn't have the National Dex then the player's offer has to be a Kanto Pokémon
-    if (!partnerHasNationalDex && playerSpecies2 > KANTO_SPECIES_END)
+    if (!partnerHasNationalDex && !IsSpeciesInKantoDex(playerSpecies2))
         return UR_TRADE_MSG_PARTNER_CANT_ACCEPT_MON;
 
     // Trade is allowed
@@ -2947,7 +2913,7 @@ int CanRegisterMonForTradingBoard(struct RfuGameCompatibilityData player, u16 sp
     if (species2 == SPECIES_EGG)
         return CANT_REGISTER_EGG;
 
-    if (species2 > KANTO_SPECIES_END && species2 != SPECIES_EGG)
+    if (!IsSpeciesInKantoDex(species2) && species2 != SPECIES_EGG)
         return CANT_REGISTER_MON;
 
     return CAN_REGISTER_MON;

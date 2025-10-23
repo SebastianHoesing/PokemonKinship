@@ -1,4 +1,5 @@
 #include "global.h"
+#include "decompress.h"
 #include "gflib.h"
 #include "data.h"
 #include "keyboard_text.h"
@@ -13,7 +14,6 @@
 #include "menu.h"
 #include "overworld.h"
 #include "naming_screen.h"
-#include "new_menu_helpers.h"
 #include "pokemon_icon.h"
 #include "pokemon_storage_system.h"
 #include "strings.h"
@@ -234,6 +234,7 @@ static void NamingScreen_CreateMonIcon(void);
 static void NamingScreen_CreateRivalIcon(void);
 static bool8 HandleKeyboardEvent(void);
 static bool8 KeyboardKeyHandler_Character(u8);
+static void SwapKeyboardToLowerAfterFirstCapitalLetter(void);
 static bool8 KeyboardKeyHandler_Page(u8);
 static bool8 KeyboardKeyHandler_Backspace(u8);
 static bool8 KeyboardKeyHandler_OK(u8);
@@ -291,10 +292,10 @@ static const u16 sRival_Gfx[] = INCBIN_U16("graphics/naming_screen/rival.4bpp");
 
 static const u8 *const sTransferredToPCMessages[] =
 {
-    Text_MonSentToBoxInSomeonesPC,
-    Text_MonSentToBoxInBillsPC,
-    Text_MonSentToBoxSomeonesBoxFull,
-    Text_MonSentToBoxBillsBoxFull
+    gText_PkmnTransferredSomeonesPC,
+    gText_PkmnTransferredBillsPC,
+    gText_PkmnTransferredSomeonesPCBoxFull,
+    gText_PkmnTransferredBillsPCBoxFull
 };
 
 static const struct BgTemplate sBgTemplates[] =
@@ -743,7 +744,7 @@ static void DisplaySentToPCMessage(void)
     StringExpandPlaceholders(gStringVar4, sTransferredToPCMessages[stringToDisplay]);
     DrawDialogueFrame(0, FALSE);
     gTextFlags.canABSpeedUpPrint = TRUE;
-    AddTextPrinterParameterized2(0, FONT_NORMAL, gStringVar4, GetTextSpeedSetting(), NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
+    AddTextPrinterParameterized2(0, FONT_NORMAL, gStringVar4, GetPlayerTextSpeedDelay(), NULL, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_WHITE, TEXT_COLOR_LIGHT_GRAY);
     CopyWindowToVram(0, COPYWIN_FULL);
 }
 
@@ -1410,7 +1411,7 @@ static void NamingScreen_CreateMonIcon(void)
     u8 spriteId;
 
     LoadMonIconPalettes();
-    spriteId = CreateMonIcon(sNamingScreen->monSpecies, SpriteCallbackDummy, 56, 40, 0, sNamingScreen->monPersonality, 1);
+    spriteId = CreateMonIcon(sNamingScreen->monSpecies, SpriteCallbackDummy, 56, 40, 0, sNamingScreen->monPersonality);
     gSprites[spriteId].oam.priority = 3;
 }
 
@@ -1491,6 +1492,8 @@ static bool8 KeyboardKeyHandler_Character(u8 input)
     {
         bool8 textFull = AddTextCharacter();
 
+        SwapKeyboardToLowerAfterFirstCapitalLetter();
+
         SquishCursor();
         if (textFull)
         {
@@ -1499,6 +1502,20 @@ static bool8 KeyboardKeyHandler_Character(u8 input)
         }
     }
     return FALSE;
+}
+
+static void SwapKeyboardToLowerAfterFirstCapitalLetter(void)
+{
+    if (AUTO_LOWERCASE_KEYBOARD < GEN_6)
+        return;
+
+    if (sNamingScreen->currentPage != KBPAGE_LETTERS_UPPER)
+        return;
+
+    if (GetTextEntryPosition() != 1)
+        return;
+
+    MainState_StartPageSwap();
 }
 
 static bool8 KeyboardKeyHandler_Page(u8 input)
@@ -1624,13 +1641,13 @@ static void HandleDpadMovement(struct Task *task)
 
     GetCursorPos(&cursorX, &cursorY);
     input = INPUT_NONE;
-    if (JOY_REPT(DPAD_UP))
+    if (JOY_REPEAT(DPAD_UP))
         input = INPUT_DPAD_UP;
-    if (JOY_REPT(DPAD_DOWN))
+    if (JOY_REPEAT(DPAD_DOWN))
         input = INPUT_DPAD_DOWN;
-    if (JOY_REPT(DPAD_LEFT))
+    if (JOY_REPEAT(DPAD_LEFT))
         input = INPUT_DPAD_LEFT;
-    if (JOY_REPT(DPAD_RIGHT))
+    if (JOY_REPEAT(DPAD_RIGHT))
         input = INPUT_DPAD_RIGHT;
 
     // Get new cursor position
@@ -1706,7 +1723,7 @@ static void DrawMonTextEntryBox(void)
 {
     u8 buffer[32];
 
-    StringCopy(buffer, gSpeciesNames[sNamingScreen->monSpecies]);
+    StringCopy(buffer, gSpeciesInfo[sNamingScreen->monSpecies].speciesName);
     StringAppendN(buffer, sNamingScreen->template->title, 15);
     FillWindowPixelBuffer(sNamingScreen->windows[WIN_TEXT_ENTRY_BOX], PIXEL_FILL(1));
     AddTextPrinterParameterized(sNamingScreen->windows[WIN_TEXT_ENTRY_BOX], FONT_NORMAL_COPY_1, buffer, 1, 1, 0, NULL);
@@ -1856,7 +1873,7 @@ static void SaveInputText(void)
 
 static void LoadGfx(void)
 {
-    LZ77UnCompWram(gNamingScreenMenu_Gfx, sNamingScreen->tileBuffer);
+    DecompressDataWithHeaderWram(gNamingScreenMenu_Gfx, sNamingScreen->tileBuffer);
     LoadBgTiles(1, sNamingScreen->tileBuffer, sizeof(sNamingScreen->tileBuffer), 0);
     LoadBgTiles(2, sNamingScreen->tileBuffer, sizeof(sNamingScreen->tileBuffer), 0);
     LoadBgTiles(3, sNamingScreen->tileBuffer, sizeof(sNamingScreen->tileBuffer), 0);
@@ -2039,35 +2056,6 @@ static bool8 IsWideLetter(u8 character)
             return TRUE;
     }
     return FALSE;
-}
-
-//--------------------------------------------------
-// Unused debug functions
-//--------------------------------------------------
-
-static void Debug_NamingScreenPlayer(void)
-{
-    DoNamingScreen(NAMING_SCREEN_PLAYER, gSaveBlock2Ptr->playerName, gSaveBlock2Ptr->playerGender, MON_MALE, 0, CB2_ReturnToFieldWithOpenMenu);
-}
-
-static void Debug_NamingScreenBox(void)
-{
-    DoNamingScreen(NAMING_SCREEN_BOX, gSaveBlock2Ptr->playerName, gSaveBlock2Ptr->playerGender, MON_MALE, 0, CB2_ReturnToFieldWithOpenMenu);
-}
-
-static void Debug_NamingScreenCaughtMon(void)
-{
-    DoNamingScreen(NAMING_SCREEN_CAUGHT_MON, gSaveBlock2Ptr->playerName, gSaveBlock2Ptr->playerGender, MON_MALE, 0, CB2_ReturnToFieldWithOpenMenu);
-}
-
-static void Debug_NamingScreenNickname(void)
-{
-    DoNamingScreen(NAMING_SCREEN_NICKNAME, gSaveBlock2Ptr->playerName, gSaveBlock2Ptr->playerGender, MON_MALE, 0, CB2_ReturnToFieldWithOpenMenu);
-}
-
-static void Debug_NamingScreenRival(void)
-{
-    DoNamingScreen(NAMING_SCREEN_RIVAL, gSaveBlock2Ptr->playerName, gSaveBlock2Ptr->playerGender, MON_MALE, 0, CB2_ReturnToFieldWithOpenMenu);
 }
 
 //--------------------------------------------------

@@ -13,17 +13,10 @@
 static EWRAM_DATA u8 *sPlttBufferBak = NULL;
 
 static void FieldCallback_SweetScent(void);
-static void StartSweetScentFieldEffect(void);
 static void TrySweetScentEncounter(u8 taskId);
 static void FailSweetScentEncounter(u8 taskId);
 
-static void Unused_StartSweetscentFldeff(void)
-{
-	gPartyMenu.slotId = 0;
-	FieldCallback_SweetScent();
-}
-
-bool8 SetUpFieldMove_SweetScent(void)
+bool32 FieldMove_SetUpSweetScent(void)
 {
     gFieldCallback2 = FieldCallback_PrepareFadeInFromMenu;
     gPostMenuFieldCallback = FieldCallback_SweetScent;
@@ -36,7 +29,7 @@ static void FieldCallback_SweetScent(void)
     gFieldEffectArguments[0] = GetCursorSelectionMonId();
 }
 
-bool8 FldEff_SweetScent(void)
+u32 FldEff_SweetScent(void)
 {
     u8 taskId;
 
@@ -46,7 +39,7 @@ bool8 FldEff_SweetScent(void)
     return FALSE;
 }
 
-static void StartSweetScentFieldEffect(void)
+void StartSweetScentFieldEffect(void)
 {
     u8 taskId;
 
@@ -92,7 +85,7 @@ static void FailSweetScentEncounter(u8 taskId)
     if (!gPaletteFade.active)
     {
         CpuFastCopy(sPlttBufferBak, gPlttBufferUnfaded, PLTT_SIZE);
-        WeatherProcessingIdle();
+        SetWeatherPalStateIdle();
         Free(sPlttBufferBak);
         ScriptContext_SetupScript(EventScript_FailSweetScent);
         DestroyTask(taskId);

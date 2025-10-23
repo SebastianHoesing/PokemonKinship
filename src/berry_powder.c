@@ -16,17 +16,12 @@ static EWRAM_DATA u8 sBerryPowderVendorWindowId = 0;
 
 u32 DecryptBerryPowder(u32 *powder)
 {
-    return *powder ^ gSaveBlock2Ptr->encryptionKey;
+    return *powder;
 }
 
 void SetBerryPowder(u32 *powder, u32 amount)
 {
-    *powder = amount ^ gSaveBlock2Ptr->encryptionKey;
-}
-
-void ApplyNewEncryptionKeyToBerryPowder(u32 encryptionKey)
-{
-    ApplyNewEncryptionKeyToWord(&gSaveBlock2Ptr->berryCrush.berryPowderAmount, encryptionKey);
+    *powder = amount;
 }
 
 static bool8 HasEnoughBerryPowder(u32 cost)
@@ -57,19 +52,6 @@ bool8 GiveBerryPowder(u32 amountToAdd)
     else
     {
         SetBerryPowder(powder, amount);
-        return TRUE;
-    }
-}
-
-static bool8 TakeBerryPowder(u32 cost)
-{
-    u32 *powder = &gSaveBlock2Ptr->berryCrush.berryPowderAmount;
-    if (!HasEnoughBerryPowder(cost))
-        return FALSE;
-    else
-    {
-        u32 amount = DecryptBerryPowder(powder);
-        SetBerryPowder(powder, amount - cost);
         return TRUE;
     }
 }
@@ -117,7 +99,7 @@ void DisplayBerryPowderVendorMenu(void)
     if (QL_AvoidDisplay(QL_DestroyAbortedDisplay) == TRUE)
         return;
 
-    template = SetWindowTemplateFields(0, 1, 1, 8, 3, 15, 32);
+    template = CreateWindowTemplate(0, 1, 1, 8, 3, 15, 32);
     sBerryPowderVendorWindowId = AddWindow(&template);
     FillWindowPixelBuffer(sBerryPowderVendorWindowId, 0);
     PutWindowTilemap(sBerryPowderVendorWindowId);

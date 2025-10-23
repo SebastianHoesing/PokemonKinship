@@ -1,4 +1,5 @@
 #include "global.h"
+#include "decompress.h"
 #include "gflib.h"
 #include "scanline_effect.h"
 #include "task.h"
@@ -15,7 +16,6 @@
 #include "graphics.h"
 #include "help_system.h"
 #include "trainer_pokemon_sprites.h"
-#include "new_menu_helpers.h"
 #include "constants/songs.h"
 #include "constants/game_stat.h"
 #include "constants/trainers.h"
@@ -651,45 +651,45 @@ static bool8 LoadCardGfx(void)
     {
     case 0:
         if (sTrainerCardDataPtr->cardType == CARD_TYPE_RSE)
-            LZ77UnCompWram(sHoennTrainerCardBg_Tilemap, sTrainerCardDataPtr->bgTilemap);
+            DecompressDataWithHeaderWram(sHoennTrainerCardBg_Tilemap, sTrainerCardDataPtr->bgTilemap);
         else
-            LZ77UnCompWram(sKantoTrainerCardBg_Tilemap, sTrainerCardDataPtr->bgTilemap);
+            DecompressDataWithHeaderWram(sKantoTrainerCardBg_Tilemap, sTrainerCardDataPtr->bgTilemap);
         break;
     case 1:
         if (sTrainerCardDataPtr->cardType == CARD_TYPE_RSE)
-            LZ77UnCompWram(sHoennTrainerCardBack_Tilemap, sTrainerCardDataPtr->backTilemap);
+            DecompressDataWithHeaderWram(sHoennTrainerCardBack_Tilemap, sTrainerCardDataPtr->backTilemap);
         else
-            LZ77UnCompWram(sKantoTrainerCardBack_Tilemap, sTrainerCardDataPtr->backTilemap);
+            DecompressDataWithHeaderWram(sKantoTrainerCardBack_Tilemap, sTrainerCardDataPtr->backTilemap);
         break;
     case 2:
         if (!sTrainerCardDataPtr->isLink)
         {
             if (sTrainerCardDataPtr->cardType == CARD_TYPE_RSE)
-                LZ77UnCompWram(sHoennTrainerCardFront_Tilemap, sTrainerCardDataPtr->frontTilemap);
+                DecompressDataWithHeaderWram(sHoennTrainerCardFront_Tilemap, sTrainerCardDataPtr->frontTilemap);
             else
-                LZ77UnCompWram(sKantoTrainerCardFront_Tilemap, sTrainerCardDataPtr->frontTilemap);
+                DecompressDataWithHeaderWram(sKantoTrainerCardFront_Tilemap, sTrainerCardDataPtr->frontTilemap);
         }
         else
         {
             if (sTrainerCardDataPtr->cardType == CARD_TYPE_RSE)
-                LZ77UnCompWram(sHoennTrainerCardFrontLink_Tilemap, sTrainerCardDataPtr->frontTilemap);
+                DecompressDataWithHeaderWram(sHoennTrainerCardFrontLink_Tilemap, sTrainerCardDataPtr->frontTilemap);
             else
-                LZ77UnCompWram(sKantoTrainerCardFrontLink_Tilemap, sTrainerCardDataPtr->frontTilemap);
+                DecompressDataWithHeaderWram(sKantoTrainerCardFrontLink_Tilemap, sTrainerCardDataPtr->frontTilemap);
         }
         break;
     case 3:
         // ? Doesnt check for RSE, sHoennTrainerCardBadges_Gfx goes unused
-        LZ77UnCompWram(sKantoTrainerCardBadges_Gfx, sTrainerCardDataPtr->badgeTiles);
+        DecompressDataWithHeaderWram(sKantoTrainerCardBadges_Gfx, sTrainerCardDataPtr->badgeTiles);
         break;
     case 4:
         if (sTrainerCardDataPtr->cardType == CARD_TYPE_RSE)
-            LZ77UnCompWram(gHoennTrainerCard_Gfx, &sTrainerCardDataPtr->cardTiles);
+            DecompressDataWithHeaderWram(gHoennTrainerCard_Gfx, &sTrainerCardDataPtr->cardTiles);
         else
-            LZ77UnCompWram(gKantoTrainerCard_Gfx, &sTrainerCardDataPtr->cardTiles);
+            DecompressDataWithHeaderWram(gKantoTrainerCard_Gfx, &sTrainerCardDataPtr->cardTiles);
         break;
     case 5:
         if (sTrainerCardDataPtr->cardType == CARD_TYPE_FRLG)
-            LZ77UnCompWram(sTrainerCardStickers_Gfx, sTrainerCardDataPtr->stickerTiles);
+            DecompressDataWithHeaderWram(sTrainerCardStickers_Gfx, sTrainerCardDataPtr->stickerTiles);
         break;
     default:
         sTrainerCardDataPtr->gfxLoadState = 0;
@@ -729,7 +729,7 @@ static void CB2_InitTrainerCard(void)
         gMain.state++;
         break;
     case 6:
-        LoadStdWindowFrameGfx();
+        LoadMessageBoxAndBorderGfx();
         gMain.state++;
         break;
     case 7:
@@ -871,7 +871,11 @@ void TrainerCard_GenerateCardForLinkPlayer(struct TrainerCard *trainerCard)
     trainerCard->rse.caughtAllHoenn = HasAllKantoMons();
     trainerCard->hasAllMons = HasAllMons();
     trainerCard->berriesPicked = gSaveBlock2Ptr->berryPick.berriesPicked;
+#if FREE_POKEMON_JUMP == FALSE
     trainerCard->jumpsInRow = gSaveBlock2Ptr->pokeJump.jumpsInRow;
+#else
+    trainerCard->jumpsInRow = 0;  
+#endif //FREE_POKEMON_JUMP
 
     trainerCard->berryCrushPoints = GetCappedGameStat(GAME_STAT_BERRY_CRUSH_POINTS, 0xFFFF);
     trainerCard->unionRoomNum = GetCappedGameStat(GAME_STAT_NUM_UNION_ROOM_BATTLES, 0xFFFF);
@@ -898,12 +902,12 @@ void TrainerCard_GenerateCardForLinkPlayer(struct TrainerCard *trainerCard)
 
     trainerCard->monIconTint = VarGet(VAR_TRAINER_CARD_MON_ICON_TINT_IDX);
 
-    trainerCard->monSpecies[0] = MailSpeciesToIconSpecies(VarGet(VAR_TRAINER_CARD_MON_ICON_1));
-    trainerCard->monSpecies[1] = MailSpeciesToIconSpecies(VarGet(VAR_TRAINER_CARD_MON_ICON_2));
-    trainerCard->monSpecies[2] = MailSpeciesToIconSpecies(VarGet(VAR_TRAINER_CARD_MON_ICON_3));
-    trainerCard->monSpecies[3] = MailSpeciesToIconSpecies(VarGet(VAR_TRAINER_CARD_MON_ICON_4));
-    trainerCard->monSpecies[4] = MailSpeciesToIconSpecies(VarGet(VAR_TRAINER_CARD_MON_ICON_5));
-    trainerCard->monSpecies[5] = MailSpeciesToIconSpecies(VarGet(VAR_TRAINER_CARD_MON_ICON_6));
+    trainerCard->monSpecies[0] = GetIconSpeciesNoPersonality(VarGet(VAR_TRAINER_CARD_MON_ICON_1));
+    trainerCard->monSpecies[1] = GetIconSpeciesNoPersonality(VarGet(VAR_TRAINER_CARD_MON_ICON_2));
+    trainerCard->monSpecies[2] = GetIconSpeciesNoPersonality(VarGet(VAR_TRAINER_CARD_MON_ICON_3));
+    trainerCard->monSpecies[3] = GetIconSpeciesNoPersonality(VarGet(VAR_TRAINER_CARD_MON_ICON_4));
+    trainerCard->monSpecies[4] = GetIconSpeciesNoPersonality(VarGet(VAR_TRAINER_CARD_MON_ICON_5));
+    trainerCard->monSpecies[5] = GetIconSpeciesNoPersonality(VarGet(VAR_TRAINER_CARD_MON_ICON_6));
 }
 
 static void SetDataFromTrainerCard(void)
@@ -1149,7 +1153,7 @@ static void PrintMoneyOnCard(void)
     u8 x;
 
     txtPtr = StringCopy(buffer, gText_TrainerCardYen);
-    ConvertIntToDecimalStringN(txtPtr, sTrainerCardDataPtr->trainerCard.rse.money, STR_CONV_MODE_LEFT_ALIGN, 6);
+    ConvertIntToDecimalStringN(txtPtr, sTrainerCardDataPtr->trainerCard.rse.money, STR_CONV_MODE_LEFT_ALIGN, MAX_MONEY_DIGITS);
     if (sTrainerCardDataPtr->cardType != CARD_TYPE_RSE)
     {
         x = -122 - 6 * StringLength(buffer);
@@ -1179,7 +1183,7 @@ static void PrintPokedexOnCard(void)
 
     if (FlagGet(FLAG_SYS_POKEDEX_GET))
     {
-        ConvertIntToDecimalStringN(buffer, sTrainerCardDataPtr->trainerCard.rse.caughtMonsCount, 0, 3);
+        ConvertIntToDecimalStringN(buffer, sTrainerCardDataPtr->trainerCard.rse.caughtMonsCount, 0, 4);
         if (sTrainerCardDataPtr->cardType != CARD_TYPE_RSE)
         {
             x = -120 - 6 * StringLength(buffer);
@@ -1282,7 +1286,7 @@ static void PrintNameOnCardBack(void)
 static void BufferHofDebutTime(void)
 {
     u8 buffer[10];
-    u8 *txtPtr;
+    u8 UNUSED *txtPtr;
 
     if (sTrainerCardDataPtr->hasHofResult)
     {
@@ -1927,33 +1931,10 @@ static void CreateTrainerCardTrainerPic(void)
         }
         else
         {
-            CreateTrainerCardTrainerPicSprite(PlayerGenderToFrontTrainerPicId(sTrainerCardDataPtr->trainerCard.rse.gender, TRUE), TRUE,
+            CreateTrainerCardTrainerPicSprite(PlayerGenderToFrontTrainerPicId(sTrainerCardDataPtr->trainerCard.rse.gender), TRUE,
                     sTrainerPicOffsets[sTrainerCardDataPtr->cardType][sTrainerCardDataPtr->trainerCard.rse.gender][0],
                     sTrainerPicOffsets[sTrainerCardDataPtr->cardType][sTrainerCardDataPtr->trainerCard.rse.gender][1],
                     8, 2);
         }
     }
-}
-
-// Unused
-static void Unref_InitTrainerCard(void (*callback)(void))
-{
-    ShowPlayerTrainerCard(callback);
-    SetMainCallback2(CB2_InitTrainerCard);
-}
-
-// Unused
-static void Unref_InitTrainerCardLink(void (*callback)(void))
-{
-    memcpy(gTrainerCards, &sLinkPlayerTrainerCardTemplate1, sizeof(sLinkPlayerTrainerCardTemplate1));
-    ShowTrainerCardInLink(CARD_TYPE_FRLG, callback);
-    SetMainCallback2(CB2_InitTrainerCard);
-}
-
-// Unused
-static void Unref_InitTrainerCardLink2(void (*callback)(void))
-{
-    memcpy(gTrainerCards, &sLinkPlayerTrainerCardTemplate2, sizeof(sLinkPlayerTrainerCardTemplate2));
-    ShowTrainerCardInLink(CARD_TYPE_FRLG, callback);
-    SetMainCallback2(CB2_InitTrainerCard);
 }

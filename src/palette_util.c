@@ -1,5 +1,6 @@
 #include "global.h"
 #include "gflib.h"
+#include "overworld.h"
 #include "palette_util.h"
 #include "util.h"
 
@@ -37,17 +38,6 @@ u8 RouletteFlash_Add(struct RouletteFlashUtil *flash, u8 id, const struct Roulet
     else
         flash->palettes[id].colorDelta = 1;
 
-    return id;
-}
-
-static u8 RouletteFlash_Remove(struct RouletteFlashUtil *flash, u8 id)
-{
-    if (id >= ARRAY_COUNT(flash->palettes))
-        return 0xFF;
-    if (!flash->palettes[id].available)
-        return 0xFF;
-
-    memset(&flash->palettes[id], 0, sizeof(flash->palettes[id]));
     return id;
 }
 
@@ -385,6 +375,8 @@ void UpdatePulseBlend(struct PulseBlend *pulseBlend)
                 if (--pulseBlendPalette->delayCounter == 0xFF)
                 {
                     pulseBlendPalette->delayCounter = pulseBlendPalette->pulseBlendSettings.delay;
+                    CpuFastCopy(gPlttBufferUnfaded + pulseBlendPalette->pulseBlendSettings.paletteOffset, gPlttBufferFaded + pulseBlendPalette->pulseBlendSettings.paletteOffset, PLTT_SIZE_4BPP);
+                    UpdatePalettesWithTime(1 << (pulseBlendPalette->pulseBlendSettings.paletteOffset >> 4));
                     BlendPalette(pulseBlendPalette->pulseBlendSettings.paletteOffset, pulseBlendPalette->pulseBlendSettings.numColors, pulseBlendPalette->blendCoeff, pulseBlendPalette->pulseBlendSettings.blendColor);
                     switch (pulseBlendPalette->pulseBlendSettings.fadeType)
                     {

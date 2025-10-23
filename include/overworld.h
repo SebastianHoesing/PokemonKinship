@@ -27,6 +27,11 @@
 #define MOVEMENT_MODE_FROZEN 1
 #define MOVEMENT_MODE_SCRIPTED 2
 
+#define TIME_OF_DAY_NIGHT       0
+#define TIME_OF_DAY_TWILIGHT    1
+#define TIME_OF_DAY_DAY         2
+#define TIME_OF_DAY_MAX         TIME_OF_DAY_DAY
+
 struct LinkPlayerObjectEvent
 {
     u8 active;
@@ -43,20 +48,34 @@ struct CreditsOverworldCmd
 };
 
 /* gDisableMapMusicChangeOnMapLoad */
-#define MUSIC_DISABLE_OFF 0
-#define MUSIC_DISABLE_STOP 1
-#define MUSIC_DISABLE_KEEP 2
+enum {
+    MUSIC_DISABLE_OFF,
+    MUSIC_DISABLE_STOP,
+    MUSIC_DISABLE_KEEP,
+};
 
-extern const struct Coords32 gDirectionToVectors[];
-
-extern struct LinkPlayerObjectEvent gLinkPlayerObjectEvents[4];
-extern MainCallback gFieldCallback;
 
 extern struct WarpData gLastUsedWarp;
+extern struct LinkPlayerObjectEvent gLinkPlayerObjectEvents[4];
 
-extern u8 gExitStairsMovementDisabled;
-extern u8 gFieldLinkPlayerCount;
+extern u16 *gBGTilemapBuffers1;
+extern u16 *gBGTilemapBuffers2;
+extern u16 *gBGTilemapBuffers3;
+extern u16 gHeldKeyCodeToSend;
+extern MainCallback gFieldCallback;
+extern bool8 (* gFieldCallback2)(void);
 extern u8 gLocalLinkPlayerId;
+extern u8 gFieldLinkPlayerCount;
+extern u8 gExitStairsMovementDisabled;
+
+extern u8 gDisableMapMusicChangeOnMapLoad;
+extern u8 gGlobalFieldTintMode;
+extern u8 gTimeOfDay;
+extern s16 gTimeUpdateCounter;
+
+extern struct TimeBlendSettings gTimeBlend;
+
+extern const struct Coords32 gDirectionToVectors[];
 
 void IncrementGameStat(u8 index);
 
@@ -78,7 +97,7 @@ void Overworld_ClearSavedMusic(void);
 bool32 Overworld_MusicCanOverrideMapMusic(u16 song);
 
 void SetFlashLevel(s32 a1);
-u8 Overworld_GetFlashLevel(void);
+u8 GetFlashLevel(void);
 
 void Overworld_SetSavedMusic(u16);
 void Overworld_ChangeMusicToDefault(void);
@@ -115,14 +134,10 @@ void ResetInitialPlayerAvatarState(void);
 void CleanupOverworldWindowsAndTilemaps(void);
 u32 ComputeWhiteOutMoneyLoss(void);
 
-extern u8 gDisableMapMusicChangeOnMapLoad;
-extern u8 gGlobalFieldTintMode;
-
-extern bool8 (* gFieldCallback2)(void);
-
 void SetLastHealLocationWarp(u8 healLocaionId);
 void LoadMapFromCameraTransition(u8 mapGroup, u8 mapNum);
 void CB2_ReturnToFieldFromDiploma(void);
+void CB2_Overworld(void);
 void CB2_OverworldBasic(void);
 void CB2_NewGame(void);
 bool8 IsMapTypeOutdoors(u8 mapType);
@@ -152,7 +167,6 @@ bool32 IsSendingKeysOverCable(void);
 void CB2_ReturnToFieldWithOpenMenu(void);
 void CB2_WhiteOut(void);
 void CB2_ReturnToFieldFromMultiplayer(void);
-void ApplyNewEncryptionKeyToGameStats(u32 newKey);
 void SetContinueGameWarpToDynamicWarp(int);
 
 void SetContinueGameWarpToHealLocation(u8 loc);
@@ -174,15 +188,23 @@ u16 SetLinkWaitingForScript(void);
 void SetMainCallback1(MainCallback cb);
 void CB1_Overworld(void);
 void CB2_ReturnToFieldContinueScript(void);
+void UpdateTimeOfDay(void);
+bool8 MapHasNaturalLight(u8 mapType);
+void UpdateAltBgPalettes(u16 palettes);
+void UpdatePalettesWithTime(u32);
 u8 GetLastUsedWarpMapSectionId(void);
 void StoreInitialPlayerAvatarState(void);
 void UpdateEscapeWarp(s16 x, s16 y);
 bool8 SetDiveWarpEmerge(u16 x, u16 y);
 bool8 SetDiveWarpDive(u16 x, u16 y);
+u8 UpdateSpritePaletteWithTime(u8 paletteNum);
 
-extern u16 *gBGTilemapBuffers1;
-extern u16 *gBGTilemapBuffers2;
-extern u16 *gBGTilemapBuffers3;
-extern u16 gHeldKeyCodeToSend;
+// Item Description Headers
+enum ItemObtainFlags
+{
+    FLAG_GET_ITEM_OBTAINED,
+    FLAG_SET_ITEM_OBTAINED,
+};
+bool8 GetSetItemObtained(u16 item, enum ItemObtainFlags caseId);
 
 #endif //GUARD_OVERWORLD_H

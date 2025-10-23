@@ -2,6 +2,7 @@
 #include "gflib.h"
 #include "battle.h"
 #include "battle_anim.h"
+#include "battle_setup.h"
 #include "link.h"
 #include "overworld.h"
 #include "quest_log.h"
@@ -22,7 +23,8 @@ void TrySetQuestLogBattleEvent(void)
 
         if (gBattleTypeFlags & BATTLE_TYPE_TRAINER)
         {
-            switch (gTrainers[gTrainerBattleOpponent_A].trainerClass)
+            u32 trainerClass = GetTrainerClassFromId(TRAINER_BATTLE_PARAM.opponentA);
+            switch (trainerClass)
             {
             case TRAINER_CLASS_LEADER:
                 eventId = QL_EVENT_DEFEATED_GYM_LEADER;
@@ -37,7 +39,7 @@ void TrySetQuestLogBattleEvent(void)
                 eventId = QL_EVENT_DEFEATED_TRAINER;
                 break;
             }
-            trainerData->trainerId = gTrainerBattleOpponent_A;
+            trainerData->trainerId = TRAINER_BATTLE_PARAM.opponentA;
             if (gBattleTypeFlags & BATTLE_TYPE_DOUBLE)
             {
                 trainerData->speciesOpponent = gBattleResults.lastOpponentSpecies;
@@ -93,7 +95,7 @@ void TrySetQuestLogBattleEvent(void)
 
 void TrySetQuestLogLinkBattleEvent(void)
 {
-    s32 partnerIdx;
+    s32 partnerIdx = 0;
     s32 opponentIdxs[2];
     u16 eventId;
     s32 i;
@@ -128,7 +130,7 @@ void TrySetQuestLogLinkBattleEvent(void)
             }
 
             for (i = 0; i < PLAYER_NAME_LENGTH; i++)
-                data->playerNames[0][i] = gLinkPlayers[gBattleStruct->multiplayerId ^ 1].name[i];
+                data->playerNames[0][i] = gLinkPlayers[gBattleScripting.multiplayerId ^ 1].name[i];
         }
         SetQuestLogEvent(eventId, (const u16 *)data);
         Free(data);
@@ -139,12 +141,12 @@ static void GetLinkMultiBattlePlayerIndexes(s32 * partnerIdx, s32 * opponentIdxs
 {
     s32 i;
     s32 numOpponentsFound = 0;
-    u8 partnerId = gLinkPlayers[gBattleStruct->multiplayerId].id ^ 2;
+    u8 partnerId = gLinkPlayers[gBattleScripting.multiplayerId].id ^ 2;
     for (i = 0; i < MAX_BATTLERS_COUNT; i++)
     {
         if (partnerId == gLinkPlayers[i].id)
             *partnerIdx = i;
-        else if (i != gBattleStruct->multiplayerId)
+        else if (i != gBattleScripting.multiplayerId)
             opponentIdxs[numOpponentsFound++] = i;
     }
 }

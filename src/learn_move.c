@@ -6,13 +6,13 @@
 #include "trig.h"
 #include "field_fadetransition.h"
 #include "overworld.h"
-#include "new_menu_helpers.h"
 #include "menu.h"
 #include "list_menu.h"
 #include "event_data.h"
 #include "text_window.h"
 #include "pokemon_summary_screen.h"
 #include "graphics.h"
+#include "move.h"
 #include "strings.h"
 #include "constants/songs.h"
 #include "constants/moves.h"
@@ -135,9 +135,9 @@ struct LearnMoveGfxResources
     u8 unk_1C;
     u8 unk_1D;
     u8 unk_1E;
-    struct ListMenuItem listMenuItems[25];
-    u16 learnableMoves[25];
-    u8 listMenuStrbufs[25][13];
+    struct ListMenuItem listMenuItems[MAX_RELEARNER_MOVES + 1];
+    u16 learnableMoves[MAX_RELEARNER_MOVES];
+    u8 listMenuStrbufs[MAX_RELEARNER_MOVES][13];
     bool8 scheduleMoveInfoUpdate;
     u8 selectedPartyMember;
     u8 selectedMoveSlot;
@@ -398,7 +398,7 @@ static void MoveRelearnerLoadBgGfx(void)
         FillWindowPixelBuffer(7, PIXEL_FILL(1));
         FillBgTilemapBufferRect(0, 0x000, 0, 0, 30, 20, 15);
         SetBgTilemapBuffer(1, sMoveRelearner->bg1TilemapBuffer);
-        LoadUserWindowGfx(0, 1, BG_PLTT_ID(14));
+        LoadUserWindowBorderGfx(0, 1, BG_PLTT_ID(14));
         ListMenuLoadStdPalAt(BG_PLTT_ID(13), 1);
         LoadPalette(gMoveRelearner_Pal, BG_PLTT_ID(0), PLTT_SIZE_4BPP);
         DecompressAndLoadBgGfxUsingHeap(1, gMoveRelearner_Gfx, 0, 0, 0);
@@ -470,7 +470,7 @@ static void CB2_MoveRelearner(void)
 static void StringExpandPlaceholdersAndPrintTextOnWindow7Color2(const u8 *str)
 {
     StringExpandPlaceholders(gStringVar4, str);
-    PrintTextOnWindow(7, gStringVar4, 0, 2, GetTextSpeedSetting(), 2);
+    PrintTextOnWindow(7, gStringVar4, 0, 2, GetPlayerTextSpeedDelay(), 2);
 }
 
 static void MoveRelearnerStateMachine(void)
@@ -506,7 +506,7 @@ static void MoveRelearnerStateMachine(void)
         MoveRelearnerMenuHandleInput();
         break;
     case MENU_STATE_PRINT_TEACH_MOVE_PROMPT:
-        CreateYesNoMenu(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
+        CreateYesNoMenuAtPos(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
         sMoveRelearner->state++;
         break;
     case MENU_STATE_TEACH_MOVE_CONFIRM :
@@ -531,7 +531,7 @@ static void MoveRelearnerStateMachine(void)
         }
         break;
     case MENU_STATE_PRINT_GIVE_UP_PROMPT:
-        CreateYesNoMenu(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
+        CreateYesNoMenuAtPos(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
         sMoveRelearner->state++;
         break;
     case MENU_STATE_GIVE_UP_CONFIRM:
@@ -552,7 +552,7 @@ static void MoveRelearnerStateMachine(void)
         sMoveRelearner->state++;
         break;
     case MENU_STATE_WAIT_FOR_TRYING_TO_LEARN:
-        CreateYesNoMenu(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
+        CreateYesNoMenuAtPos(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
         sMoveRelearner->state = 18;
         break;
     case MENU_STATE_CONFIRM_DELETE_OLD_MOVE:
@@ -573,7 +573,7 @@ static void MoveRelearnerStateMachine(void)
         sMoveRelearner->state++;
         break;
     case MENU_STATE_WAIT_FOR_STOP_TEACHING:
-        CreateYesNoMenu(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
+        CreateYesNoMenuAtPos(&sMoveRelearnerYesNoMenuTemplate, FONT_NORMAL_COPY_2, 0, 2, 0x001, 14, 0);
         sMoveRelearner->state = 26;
         break;
     case MENU_STATE_CONFIRM_STOP_TEACHING:
@@ -643,10 +643,10 @@ static void MoveRelearnerStateMachine(void)
             else
             {
                 move = GetMonData(&gPlayerParty[sMoveRelearner->selectedPartyMember], MON_DATA_MOVE1 + sMoveRelearner->selectedMoveSlot);
-                StringCopy(gStringVar3, gMoveNames[move]);
+                StringCopy(gStringVar3, GetMoveName(move));
                 RemoveMonPPBonus(&gPlayerParty[sMoveRelearner->selectedPartyMember], sMoveRelearner->selectedMoveSlot);
                 SetMonMoveSlot(&gPlayerParty[sMoveRelearner->selectedPartyMember], sMoveRelearner->learnableMoves[sMoveRelearner->selectedIndex], sMoveRelearner->selectedMoveSlot);
-                StringCopy(gStringVar2, gMoveNames[sMoveRelearner->learnableMoves[sMoveRelearner->selectedIndex]]);
+                StringCopy(gStringVar2, GetMoveName(sMoveRelearner->learnableMoves[sMoveRelearner->selectedIndex]));
                 StringExpandPlaceholdersAndPrintTextOnWindow7Color2(gText_1_2_and_Poof);
                 sMoveRelearner->state = 30;
                 gSpecialVar_0x8004 = TRUE;
@@ -750,23 +750,23 @@ static void MoveRelearnerInitListMenuBuffersEtc(void)
 {
     int i;
     s32 count;
-    u8 nickname[11];
+    u8 nickname[POKEMON_NAME_LENGTH + 1];
 
     sMoveRelearner->numLearnableMoves = GetMoveRelearnerMoves(&gPlayerParty[sMoveRelearner->selectedPartyMember], sMoveRelearner->learnableMoves);
     count = GetMoveRelearnerMoves(&gPlayerParty[sMoveRelearner->selectedPartyMember], sMoveRelearner->learnableMoves);
     for (i = 0; i < sMoveRelearner->numLearnableMoves; i++)
-        StringCopy(sMoveRelearner->listMenuStrbufs[i], gMoveNames[sMoveRelearner->learnableMoves[i]]);
+        StringCopy(sMoveRelearner->listMenuStrbufs[i], gMovesInfo[sMoveRelearner->learnableMoves[i]].name);
     GetMonData(&gPlayerParty[sMoveRelearner->selectedPartyMember], MON_DATA_NICKNAME, nickname);
     StringCopy_Nickname(gStringVar1, nickname);
     StringCopy(sMoveRelearner->listMenuStrbufs[sMoveRelearner->numLearnableMoves], gFameCheckerText_Cancel);
     sMoveRelearner->numLearnableMoves++;
     for (i = 0; i < count; i++)
     {
-        sMoveRelearner->listMenuItems[i].label = sMoveRelearner->listMenuStrbufs[i];
-        sMoveRelearner->listMenuItems[i].index = i;
+        sMoveRelearner->listMenuItems[i].name = sMoveRelearner->listMenuStrbufs[i];
+        sMoveRelearner->listMenuItems[i].id = i;
     }
-    sMoveRelearner->listMenuItems[i].label = gFameCheckerText_Cancel;
-    sMoveRelearner->listMenuItems[i].index = 0xFE;
+    sMoveRelearner->listMenuItems[i].name = gFameCheckerText_Cancel;
+    sMoveRelearner->listMenuItems[i].id = 0xFE;
     gMultiuseListMenuTemplate = sMoveRelearnerListMenuTemplate;
     gMultiuseListMenuTemplate.items = sMoveRelearner->listMenuItems;
     gMultiuseListMenuTemplate.totalItems = count + 1;
@@ -816,30 +816,30 @@ static void MoveLearnerInitListMenu(void)
 static void PrintMoveInfo(u16 move)
 {
     u8 buffer[50];
-    BlitMenuInfoIcon(2, gBattleMoves[move].type + 1, 1, 4);
+    BlitMenuInfoIcon(2, gMovesInfo[move].type + 1, 1, 4);
 
-    if (gBattleMoves[move].power < 2)
+    if (gMovesInfo[move].power < 2)
     {
         PrintTextOnWindow(3, gText_ThreeHyphens, 1, 4, 0, 0);
     }
     else
     {
-        ConvertIntToDecimalStringN(buffer, gBattleMoves[move].power, STR_CONV_MODE_RIGHT_ALIGN, 3);
+        ConvertIntToDecimalStringN(buffer, gMovesInfo[move].power, STR_CONV_MODE_RIGHT_ALIGN, 3);
         PrintTextOnWindow(3, buffer, 1, 4, 0, 0);
     }
 
-    if (gBattleMoves[move].accuracy == 0)
+    if (gMovesInfo[move].accuracy == 0)
     {
         PrintTextOnWindow(3, gText_ThreeHyphens, 1, 18, 0, 1);
     }
     else
     {
-        ConvertIntToDecimalStringN(buffer, gBattleMoves[move].accuracy, STR_CONV_MODE_RIGHT_ALIGN, 3);
+        ConvertIntToDecimalStringN(buffer, gMovesInfo[move].accuracy, STR_CONV_MODE_RIGHT_ALIGN, 3);
         PrintTextOnWindow(3, buffer, 1, 18, 0, 1);
     }
-    ConvertIntToDecimalStringN(buffer, gBattleMoves[move].pp, STR_CONV_MODE_LEFT_ALIGN, 2);
+    ConvertIntToDecimalStringN(buffer, gMovesInfo[move].pp, STR_CONV_MODE_LEFT_ALIGN, 2);
     PrintTextOnWindow(4, buffer, 2, 2, 0, 0);
-    PrintTextOnWindow(5, gMoveDescriptionPointers[move - 1], 1, 0, 0, 0);
+    PrintTextOnWindow(5, gMovesInfo[move].description, 1, 0, 0, 0);
 }
 
 static void LoadMoveInfoUI(void)

@@ -1,9 +1,9 @@
 #include "global.h"
 #include "gflib.h"
 #include "battle.h"
+#include "battle_setup.h"
 #include "link.h"
 #include "menu.h"
-#include "new_menu_helpers.h"
 #include "overworld.h"
 #include "party_menu.h"
 #include "strings.h"
@@ -58,7 +58,7 @@ static void SetUpPartiesAndStartBattle(void)
     }
     IncrementGameStat(GAME_STAT_NUM_UNION_ROOM_BATTLES);
     CalculatePlayerPartyCount();
-    gTrainerBattleOpponent_A = TRAINER_UNION_ROOM;
+    TRAINER_BATTLE_PARAM.opponentA = TRAINER_UNION_ROOM;
     SetMainCallback2(CB2_InitBattle);
 }
 

@@ -88,7 +88,7 @@
 #define VAR_0x4029                         0x4029
 #define VAR_0x402A                         0x402A
 #define VAR_0x402B                         0x402B
-#define VAR_0x402C                         0x402C
+#define VAR_DAYS                           0x402C // was VAR_RESET_RTC_ENABLE
 #define VAR_0x402D                         0x402D
 #define VAR_0x402E                         0x402E
 
@@ -335,6 +335,18 @@
 #define VAR_0x8014                 0x8014 // Unknown/unused
 
 #define SPECIAL_VARS_END           0x8014
+
+#if TESTING
+#define TESTING_VARS_START             0x9000
+#define TESTING_VAR_DIFFICULTY         (TESTING_VARS_START + 0x0)
+#define TESTING_VAR_UNUSED_1           (TESTING_VARS_START + 0x1)
+#define TESTING_VAR_UNUSED_2           (TESTING_VARS_START + 0x2)
+#define TESTING_VAR_UNUSED_3           (TESTING_VARS_START + 0x3)
+#define TESTING_VAR_UNUSED_4           (TESTING_VARS_START + 0x4)
+#define TESTING_VAR_UNUSED_5           (TESTING_VARS_START + 0x5)
+#define TESTING_VAR_UNUSED_6           (TESTING_VARS_START + 0x6)
+#define TESTING_VAR_UNUSED_7           (TESTING_VARS_START + 0x7)
+#endif // TESTING
 
 // Text color ids for VAR_TEXT_COLOR / VAR_PREV_TEXT_COLOR
 #define NPC_TEXT_COLOR_MALE      0 // Blue, for male NPCs

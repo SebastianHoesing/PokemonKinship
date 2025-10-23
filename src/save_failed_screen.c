@@ -1,7 +1,12 @@
 #include "global.h"
-#include "gflib.h"
-#include "decompress.h"
+
 #include "gba/flash_internal.h"
+
+#include "dma3.h"
+#include "gpu_regs.h"
+#include "text.h"
+
+#include "decompress.h"
 #include "help_system.h"
 #include "m4a.h"
 #include "save.h"
@@ -10,7 +15,6 @@
 COMMON_DATA bool32 sIsInSaveFailedScreen = 0;
 
 static EWRAM_DATA u16 sSaveType = SAVE_NORMAL;
-static EWRAM_DATA u16 sUnused = 0;
 static EWRAM_DATA u8 sSaveFailedScreenState = 0;
 
 static void BlankPalettes(void);
@@ -177,9 +181,9 @@ static bool16 VerifySectorWipe(u32 sector)
 {
     u16 sector0 = sector;
     u16 i;
-    u32 *saveDataBuffer = (void *)&gSaveDataBuffer;
-    ReadFlash(sector0, 0, saveDataBuffer, 0x1000);
-    for (i = 0; i < 0x1000 / sizeof(u32); i++, saveDataBuffer++)
+    u32 *saveDataBuffer = (u32 *)&gSaveDataBuffer;
+    ReadFlash(sector0, 0, (u8 *)saveDataBuffer, SECTOR_SIZE);
+    for (i = 0; i < SECTOR_SIZE / sizeof(u32); i++, saveDataBuffer++)
     {
         if (*saveDataBuffer != 0)
             return TRUE;

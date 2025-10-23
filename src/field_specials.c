@@ -2,10 +2,13 @@
 #include "gflib.h"
 #include "quest_log.h"
 #include "list_menu.h"
+#include "load_save.h"
+#include "debug.h"
 #include "diploma.h"
 #include "script.h"
 #include "field_player_avatar.h"
 #include "overworld.h"
+#include "field_player_avatar.h"
 #include "field_message_box.h"
 #include "event_data.h"
 #include "strings.h"
@@ -17,10 +20,11 @@
 #include "battle_tower.h"
 #include "field_camera.h"
 #include "field_effect.h"
+#include "field_weather.h"
 #include "event_object_movement.h"
-#include "menu_indicators.h"
+#include "item.h"
 #include "random.h"
-#include "mail_data.h"
+#include "mail.h"
 #include "help_system.h"
 #include "pokemon_storage_system.h"
 #include "script_menu.h"
@@ -31,8 +35,10 @@
 #include "mystery_gift.h"
 #include "naming_screen.h"
 #include "party_menu.h"
+#include "rtc.h"
+#include "tilesets.h"
+#include "wallclock.h"
 #include "dynamic_placeholder_text_util.h"
-#include "new_menu_helpers.h"
 #include "constants/songs.h"
 #include "constants/items.h"
 #include "constants/maps.h"
@@ -46,11 +52,11 @@ static EWRAM_DATA u8 sElevatorCurrentFloorWindowId = 0;
 static EWRAM_DATA u16 sElevatorScroll = 0;
 static EWRAM_DATA u16 sElevatorCursorPos = 0;
 static EWRAM_DATA struct ListMenuItem * sListMenuItems = NULL;
-static EWRAM_DATA u16 sListMenuLastScrollPosition = 0;
 static EWRAM_DATA u8 sPCBoxToSendMon = 0;
 static EWRAM_DATA u8 sBrailleTextCursorSpriteID = 0;
 
-COMMON_DATA struct ListMenuTemplate sFieldSpecialsListMenuTemplate = {0};
+EWRAM_DATA u16 gScrollableMultichoice_ScrollOffset = 0;
+COMMON_DATA struct ListMenuTemplate gScrollableMultichoice_ListMenuTemplate = {0};
 COMMON_DATA u16 sFieldSpecialsListMenuScrollBuffer = 0;
 
 static void Task_AnimatePcTurnOn(u8 taskId);
@@ -91,6 +97,13 @@ void ShowDiploma(void)
 {
     QuestLog_CutRecording();
     SetMainCallback2(CB2_ShowDiploma);
+    LockPlayerFieldControls();
+}
+
+void Special_ViewWallClock(void)
+{
+    gMain.savedCallback = CB2_ReturnToField;
+    SetMainCallback2(CB2_ViewWallClock);
     LockPlayerFieldControls();
 }
 
@@ -160,6 +173,16 @@ void SetHiddenItemFlag(void)
     FlagSet(gSpecialVar_0x8004);
 }
 
+u16 GetWeekCount(void)
+{
+    u16 weekCount = gLocalTime.days / 7;
+    if (weekCount > 9999)
+    {
+        weekCount = 9999;
+    }
+    return weekCount;
+}
+
 u8 GetLeadMonFriendship(void)
 {
     struct Pokemon * pokemon = &gPlayerParty[GetLeadMonIndex()];
@@ -206,6 +229,29 @@ bool8 PlayerHasGrassPokemonInParty(void)
     return FALSE;
 }
 
+static bool32 IsBuildingPCTile(u32 tileId)
+{
+    return GetPrimaryTileset(gMapHeader.mapLayout) == &gTileset_Building 
+        && (tileId == METATILE_Building_PCOn || tileId == METATILE_Building_PCOff);
+}
+
+static bool32 IsPlayerHousePCTile(u32 tileId)
+{
+    return (GetSecondaryTileset(gMapHeader.mapLayout) == &gTileset_GenericBuilding1 
+        && (tileId == METATILE_GenericBuilding1_PlayersPCOn || tileId == METATILE_GenericBuilding1_PlayersPCOff));
+}
+
+static bool32 IsPlayerInFrontOfPC(void)
+{
+    s16 x, y;
+    u32 tileInFront;
+
+    GetXYCoordsOneStepInFrontOfPlayer(&x, &y);
+    tileInFront = MapGridGetMetatileIdAt(x, y);
+
+    return IsBuildingPCTile(tileInFront) || IsPlayerHousePCTile(tileInFront);
+}
+
 #define tState data[0]
 #define tTimer data[1]
 
@@ -213,7 +259,7 @@ void AnimatePcTurnOn(void)
 {
     u8 taskId;
 
-    if (FuncIsActiveTask(Task_AnimatePcTurnOn) != TRUE)
+    if (FuncIsActiveTask(Task_AnimatePcTurnOn) != TRUE && IsPlayerInFrontOfPC() == TRUE)
     {
         taskId = CreateTask(Task_AnimatePcTurnOn, 8);
         gTasks[taskId].tState = 0;
@@ -290,6 +336,8 @@ void AnimatePcTurnOff()
     s8 deltaY = 0;
     u8 direction = GetPlayerFacingDirection();
 
+    if (IsPlayerInFrontOfPC() == FALSE)
+        return;
     switch (direction)
     {
     case DIR_NORTH:
@@ -317,7 +365,7 @@ void AnimatePcTurnOff()
 
 void SpawnCameraObject(void)
 {
-    u8 objectEventId = SpawnSpecialObjectEventParameterized(OBJ_EVENT_GFX_YOUNGSTER, 8, LOCALID_CAMERA, gSaveBlock1Ptr->pos.x + MAP_OFFSET, gSaveBlock1Ptr->pos.y + MAP_OFFSET, 3);
+    u32 objectEventId = SpawnSpecialObjectEventParameterized(OBJ_EVENT_GFX_YOUNGSTER, 8, LOCALID_CAMERA, gSaveBlock1Ptr->pos.x + MAP_OFFSET, gSaveBlock1Ptr->pos.y + MAP_OFFSET, 3);
     gObjectEvents[objectEventId].invisible = TRUE;
     CameraObjectSetFollowedObjectId(gObjectEvents[objectEventId].spriteId);
 }
@@ -521,7 +569,7 @@ u8 GetLeadMonIndex(void)
     return 0;
 }
 
-u16 GetPartyMonSpecies(void)
+u16 ScriptGetPartyMonSpecies(void)
 {
     return GetMonData(&gPlayerParty[gSpecialVar_0x8004], MON_DATA_SPECIES_OR_EGG, NULL);
 }
@@ -685,7 +733,7 @@ void SampleResortGorgeousMonAndReward(void)
         VarSet(VAR_RESORT_GORGEOUS_REWARD, SampleResortGorgeousReward());
         VarSet(VAR_RESORT_GOREGEOUS_STEP_COUNTER, 0);
     }
-    StringCopy(gStringVar1, gSpeciesNames[VarGet(VAR_RESORT_GORGEOUS_REQUESTED_MON)]);
+    StringCopy(gStringVar1, gSpeciesInfo[VarGet(VAR_RESORT_GORGEOUS_REQUESTED_MON)].speciesName);
 }
 
 static u16 SampleResortGorgeousMon(void)
@@ -1338,31 +1386,31 @@ static void Task_CreateScriptListMenu(u8 taskId)
     u8 windowId;
     LockPlayerFieldControls();
     if (gSpecialVar_0x8004 == LISTMENU_SILPHCO_FLOORS)
-        sListMenuLastScrollPosition = sElevatorScroll;
+        gScrollableMultichoice_ScrollOffset = sElevatorScroll;
     else
-        sListMenuLastScrollPosition = 0;
+        gScrollableMultichoice_ScrollOffset = 0;
     sListMenuItems = AllocZeroed(task->data[1] * sizeof(struct ListMenuItem));
     CreateScriptListMenu();
     mwidth = 0;
     for (i = 0; i < task->data[1]; i++)
     {
-        sListMenuItems[i].label = sListMenuLabels[gSpecialVar_0x8004][i];
-        sListMenuItems[i].index = i;
-        width = GetStringWidth(FONT_NORMAL, sListMenuItems[i].label, 0);
+        sListMenuItems[i].name = sListMenuLabels[gSpecialVar_0x8004][i];
+        sListMenuItems[i].id = i;
+        width = GetStringWidth(FONT_NORMAL, sListMenuItems[i].name, 0);
         if (width > mwidth)
             mwidth = width;
     }
     task->data[4] = (mwidth + 9) / 8 + 1;
     if (task->data[2] + task->data[4] > 29)
         task->data[2] = 29 - task->data[4];
-    template = SetWindowTemplateFields(0, task->data[2], task->data[3], task->data[4], task->data[5], 15, 0x038);
+    template = CreateWindowTemplate(0, task->data[2], task->data[3], task->data[4], task->data[5], 15, 0x038);
     task->data[13] = windowId = AddWindow(&template);
-    SetStdWindowBorderStyle(task->data[13], 0);
-    sFieldSpecialsListMenuTemplate.totalItems = task->data[1];
-    sFieldSpecialsListMenuTemplate.maxShowed = task->data[0];
-    sFieldSpecialsListMenuTemplate.windowId = task->data[13];
+    SetStandardWindowBorderStyle(task->data[13], 0);
+    gScrollableMultichoice_ListMenuTemplate.totalItems = task->data[1];
+    gScrollableMultichoice_ListMenuTemplate.maxShowed = task->data[0];
+    gScrollableMultichoice_ListMenuTemplate.windowId = task->data[13];
     Task_CreateMenuRemoveScrollIndicatorArrowPair(taskId);
-    task->data[14] = ListMenuInit(&sFieldSpecialsListMenuTemplate, task->data[7], task->data[8]);
+    task->data[14] = ListMenuInit(&gScrollableMultichoice_ListMenuTemplate, task->data[7], task->data[8]);
     PutWindowTilemap(task->data[13]);
     CopyWindowToVram(task->data[13], COPYWIN_FULL);
     gTasks[taskId].func = Task_ListMenuHandleInput;
@@ -1370,24 +1418,24 @@ static void Task_CreateScriptListMenu(u8 taskId)
 
 static void CreateScriptListMenu(void)
 {
-    sFieldSpecialsListMenuTemplate.items = sListMenuItems;
-    sFieldSpecialsListMenuTemplate.moveCursorFunc = ScriptListMenuMoveCursorFunction;
-    sFieldSpecialsListMenuTemplate.itemPrintFunc = NULL;
-    sFieldSpecialsListMenuTemplate.totalItems = 1;
-    sFieldSpecialsListMenuTemplate.maxShowed = 1;
-    sFieldSpecialsListMenuTemplate.windowId = 0;
-    sFieldSpecialsListMenuTemplate.header_X = 0;
-    sFieldSpecialsListMenuTemplate.item_X = 8;
-    sFieldSpecialsListMenuTemplate.cursor_X = 0;
-    sFieldSpecialsListMenuTemplate.upText_Y = 0;
-    sFieldSpecialsListMenuTemplate.cursorPal = 2;
-    sFieldSpecialsListMenuTemplate.fillValue = 1;
-    sFieldSpecialsListMenuTemplate.cursorShadowPal = 3;
-    sFieldSpecialsListMenuTemplate.lettersSpacing = 1;
-    sFieldSpecialsListMenuTemplate.itemVerticalPadding = 0;
-    sFieldSpecialsListMenuTemplate.scrollMultiple = 0;
-    sFieldSpecialsListMenuTemplate.fontId = FONT_NORMAL;
-    sFieldSpecialsListMenuTemplate.cursorKind = 0;
+    gScrollableMultichoice_ListMenuTemplate.items = sListMenuItems;
+    gScrollableMultichoice_ListMenuTemplate.moveCursorFunc = ScriptListMenuMoveCursorFunction;
+    gScrollableMultichoice_ListMenuTemplate.itemPrintFunc = NULL;
+    gScrollableMultichoice_ListMenuTemplate.totalItems = 1;
+    gScrollableMultichoice_ListMenuTemplate.maxShowed = 1;
+    gScrollableMultichoice_ListMenuTemplate.windowId = 0;
+    gScrollableMultichoice_ListMenuTemplate.header_X = 0;
+    gScrollableMultichoice_ListMenuTemplate.item_X = 8;
+    gScrollableMultichoice_ListMenuTemplate.cursor_X = 0;
+    gScrollableMultichoice_ListMenuTemplate.upText_Y = 0;
+    gScrollableMultichoice_ListMenuTemplate.cursorPal = 2;
+    gScrollableMultichoice_ListMenuTemplate.fillValue = 1;
+    gScrollableMultichoice_ListMenuTemplate.cursorShadowPal = 3;
+    gScrollableMultichoice_ListMenuTemplate.lettersSpacing = 1;
+    gScrollableMultichoice_ListMenuTemplate.itemVerticalPadding = 0;
+    gScrollableMultichoice_ListMenuTemplate.scrollMultiple = 0;
+    gScrollableMultichoice_ListMenuTemplate.fontId = FONT_NORMAL;
+    gScrollableMultichoice_ListMenuTemplate.cursorKind = 0;
 }
 
 static void ScriptListMenuMoveCursorFunction(s32 nothing, bool8 is, struct ListMenu * used)
@@ -1400,7 +1448,7 @@ static void ScriptListMenuMoveCursorFunction(s32 nothing, bool8 is, struct ListM
     {
         task = &gTasks[taskId];
         ListMenuGetScrollAndRow(task->data[14], &sFieldSpecialsListMenuScrollBuffer, NULL);
-        sListMenuLastScrollPosition = sFieldSpecialsListMenuScrollBuffer;
+        gScrollableMultichoice_ScrollOffset = sFieldSpecialsListMenuScrollBuffer;
     }
 }
 
@@ -1499,7 +1547,7 @@ static void Task_CreateMenuRemoveScrollIndicatorArrowPair(u8 taskId)
         template.secondY = 8 * task->data[5] + 10;
         template.fullyUpThreshold = 0;
         template.fullyDownThreshold = task->data[1] - task->data[0];
-        task->data[12] = AddScrollIndicatorArrowPair(&template, &sListMenuLastScrollPosition);
+        task->data[12] = AddScrollIndicatorArrowPair(&template, &gScrollableMultichoice_ScrollOffset);
     }
 }
 
@@ -1545,9 +1593,31 @@ void ResetContextNpcTextColor(void)
     gSpecialVar_TextColor = NPC_TEXT_COLOR_DEFAULT;
 }
 
+static u8 GetFollowerGender(void)
+{
+    struct Pokemon *firstLiveMon = GetFirstLiveMon();
+    if (firstLiveMon == NULL)
+        return MON_GENDERLESS;
+    return GetMonGender(firstLiveMon);
+}
+
+static u8 GetFollowerTextColor(void)
+{
+    switch (GetFollowerGender())
+    {
+    case MON_FEMALE:
+        return NPC_TEXT_COLOR_FEMALE;
+    case MON_MALE:
+        return NPC_TEXT_COLOR_MALE;
+    case MON_GENDERLESS:
+    default:
+        return NPC_TEXT_COLOR_NEUTRAL;
+    }
+}
+
 u8 ContextNpcGetTextColor(void)
 {
-    u8 gfxId;
+    u16 gfxId;
     if (gSpecialVar_TextColor != NPC_TEXT_COLOR_DEFAULT)
     {
         // A text color has been specified, use that
@@ -1562,7 +1632,18 @@ u8 ContextNpcGetTextColor(void)
     {
         // An object is selected and no color has been specified.
         // Use the text color normally associated with this object's sprite.
-        gfxId = gObjectEvents[gSelectedObjectEvent].graphicsId;
+        struct MapPosition position;
+        u8 objEventId;
+        GetInFrontOfPlayerPosition(&position);
+        objEventId = GetObjectEventIdByPosition(position.x, position.y, position.elevation);
+        if (objEventId < OBJECT_EVENTS_COUNT)
+            gfxId = gObjectEvents[objEventId].graphicsId;
+        else
+            gfxId = gObjectEvents[gSelectedObjectEvent].graphicsId;
+        
+        if (gfxId & OBJ_EVENT_MON)
+            return GetFollowerTextColor();
+
         if (gfxId >= OBJ_EVENT_GFX_VAR_0)
             gfxId = VarGetObjectEventGraphicsId(gfxId - OBJ_EVENT_GFX_VAR_0);
         return GetColorFromTextColorTable(gfxId);
@@ -1577,7 +1658,7 @@ static bool8 HasMonBeenRenamed(u8 idx)
     language = GetMonData(pokemon, MON_DATA_LANGUAGE, &language);
     if (language != LANGUAGE_ENGLISH)
         return TRUE;
-    else if (StringCompare(gSpeciesNames[GetMonData(pokemon, MON_DATA_SPECIES, NULL)], gStringVar1) != 0)
+    else if (StringCompare(gSpeciesInfo[GetMonData(pokemon, MON_DATA_SPECIES, NULL)].speciesName, gStringVar1) != 0)
         return TRUE;
     else
         return FALSE;
@@ -1594,26 +1675,16 @@ void TV_PrintIntToStringVar(u8 varidx, s32 number)
     ConvertIntToDecimalStringN(sStringVarPtrs[varidx], number, STR_CONV_MODE_LEFT_ALIGN, n);
 }
 
-s32 CountDigits(s32 number)
+size_t CountDigits(s32 value)
 {
-    if (number / 10 == 0)
-        return 1;
-    else if (number / 100 == 0)
-        return 2;
-    else if (number / 1000 == 0)
-        return 3;
-    else if (number / 10000 == 0)
-        return 4;
-    else if (number / 100000 == 0)
-        return 5;
-    else if (number / 1000000 == 0)
-        return 6;
-    else if (number / 10000000 == 0)
-        return 7;
-    else if (number / 100000000 == 0)
-        return 8;
-    else
-        return 1;
+    u32 count = 0;
+
+    while (value > 0)
+    {
+        value /= 10;
+        count++;
+    }
+    return count;
 }
 
 bool8 NameRaterWasNicknameChanged(void)
@@ -2056,9 +2127,9 @@ bool8 UsedPokemonCenterWarp(void)
 bool8 BufferTMHMMoveName(void)
 {
     // 8004 = item ID
-    if (gSpecialVar_0x8004 >= ITEM_TM01 && gSpecialVar_0x8004 <= ITEM_HM08)
+    if (IsItemTMHM(gSpecialVar_0x8004))
     {
-        StringCopy(gStringVar1, gMoveNames[ItemIdToBattleMoveId(gSpecialVar_0x8004)]);
+        StringCopy(gStringVar1, gMovesInfo[ItemIdToBattleMoveId(gSpecialVar_0x8004)].name);
         return TRUE;
     }
     else
@@ -2070,6 +2141,13 @@ void RunMassageCooldownStepCounter(void)
     u16 count = VarGet(VAR_MASSAGE_COOLDOWN_STEP_COUNTER);
     if (count < 500)
         VarSet(VAR_MASSAGE_COOLDOWN_STEP_COUNTER, count + 1);
+}
+
+void SetHiddenNature(void)
+{
+    u32 hiddenNature = gSpecialVar_Result;
+    SetMonData(&gPlayerParty[gSpecialVar_0x8004], MON_DATA_HIDDEN_NATURE, &hiddenNature);
+    CalculateMonStats(&gPlayerParty[gSpecialVar_0x8004]);
 }
 
 void DaisyMassageServices(void)
@@ -2186,7 +2264,6 @@ static void Task_RunPokemonLeagueLightingEffect(u8 taskId)
 
 static void Task_CancelPokemonLeagueLightingEffect(u8 taskId)
 {
-    s16 *data = gTasks[taskId].data;
     if (FlagGet(FLAG_TEMP_4) != FALSE)
     {
         if (gSaveBlock1Ptr->location.mapGroup == MAP_GROUP(MAP_POKEMON_LEAGUE_CHAMPIONS_ROOM) && gSaveBlock1Ptr->location.mapNum == MAP_NUM(MAP_POKEMON_LEAGUE_CHAMPIONS_ROOM))
@@ -2210,12 +2287,6 @@ void StopPokemonLeagueLightingEffectTask(void)
     }
 }
 
-static const u8 sCapeBrinkCompatibleSpecies[] = {
-    SPECIES_VENUSAUR,
-    SPECIES_CHARIZARD,
-    SPECIES_BLASTOISE
-};
-
 bool8 CapeBrinkGetMoveToTeachLeadPokemon(void)
 {
     // Returns:
@@ -2223,74 +2294,70 @@ bool8 CapeBrinkGetMoveToTeachLeadPokemon(void)
     //   8006 = Num moves known by lead mon
     //   8007 = Index of lead mon
     //   to specialvar = whether a move can be taught in the first place
-    u8 tutorMonId = 0;
-    u8 numMovesKnown = 0;
-    u8 leadMonSlot = GetLeadMonIndex();
-    u8 i;
-    gSpecialVar_0x8007 = leadMonSlot;
-    for (i = 0; i < NELEMS(sCapeBrinkCompatibleSpecies); i++)
-    {
-        if (GetMonData(&gPlayerParty[leadMonSlot], MON_DATA_SPECIES_OR_EGG, NULL) == sCapeBrinkCompatibleSpecies[i])
-        {
-            tutorMonId = i;
-            break;
-        }
-    }
-    if (i == NELEMS(sCapeBrinkCompatibleSpecies) || GetMonData(&gPlayerParty[leadMonSlot], MON_DATA_FRIENDSHIP) != 255)
+    u8 i, leadMonSlot, moveCount = 0;
+    u16 moveId, tutorFlag; 
+    struct Pokemon *leadMon;
+    
+    leadMonSlot = GetLeadMonIndex();
+    leadMon = &gPlayerParty[leadMonSlot];
+    
+    if (GetMonData(leadMon, MON_DATA_FRIENDSHIP) != 255)
         return FALSE;
-    if (tutorMonId == 0)
+
+    moveId = GetFirstPartnerMove(GetMonData(leadMon, MON_DATA_SPECIES_OR_EGG));
+    switch(moveId)
     {
-        StringCopy(gStringVar2, gMoveNames[MOVE_FRENZY_PLANT]);
-        gSpecialVar_0x8005 = MOVETUTOR_FRENZY_PLANT;
-        if (FlagGet(FLAG_TUTOR_FRENZY_PLANT) == TRUE)
+        case MOVE_FRENZY_PLANT:
+            tutorFlag = FLAG_TUTOR_FRENZY_PLANT;
+            break;
+        case MOVE_BLAST_BURN:
+            tutorFlag = FLAG_TUTOR_BLAST_BURN;
+            break;
+        case MOVE_HYDRO_CANNON:
+            tutorFlag = FLAG_TUTOR_HYDRO_CANNON;
+            break;
+        default:
             return FALSE;
     }
-    else if (tutorMonId == 1)
-    {
-        StringCopy(gStringVar2, gMoveNames[MOVE_BLAST_BURN]);
-        gSpecialVar_0x8005 = MOVETUTOR_BLAST_BURN;
-        if (FlagGet(FLAG_TUTOR_BLAST_BURN) == TRUE)
-            return FALSE;
-    }
-    else
-    {
-        StringCopy(gStringVar2, gMoveNames[MOVE_HYDRO_CANNON]);
-        gSpecialVar_0x8005 = MOVETUTOR_HYDRO_CANNON;
-        if (FlagGet(FLAG_TUTOR_HYDRO_CANNON) == TRUE)
-            return FALSE;
-    }
-    if (GetMonData(&gPlayerParty[leadMonSlot], MON_DATA_MOVE1) != MOVE_NONE)
-        numMovesKnown++;
-    if (GetMonData(&gPlayerParty[leadMonSlot], MON_DATA_MOVE2) != MOVE_NONE)
-        numMovesKnown++;
-    if (GetMonData(&gPlayerParty[leadMonSlot], MON_DATA_MOVE3) != MOVE_NONE)
-        numMovesKnown++;
-    if (GetMonData(&gPlayerParty[leadMonSlot], MON_DATA_MOVE4) != MOVE_NONE)
-        numMovesKnown++;
-    gSpecialVar_0x8006 = numMovesKnown;
+    
+    StringCopy(gStringVar2, gMovesInfo[moveId].name);
+    if (!I_REUSABLE_TMS && FlagGet(tutorFlag) == TRUE)
+        return FALSE;
+    
+    for (i = 0; i < MAX_MON_MOVES; i++)
+        moveCount += (GetMonData(leadMon, MON_DATA_MOVE1 + i) != MOVE_NONE);
+    
+    gSpecialVar_0x8005 = moveId;
+    gSpecialVar_0x8006 = moveCount;
+    gSpecialVar_0x8007 = leadMonSlot;
+
     return TRUE;
 }
 
 bool8 HasLearnedAllMovesFromCapeBrinkTutor(void)
 {
     // 8005 is set by CapeBrinkGetMoveToTeachLeadPokemon
-    u8 r4 = 0;
-    if (gSpecialVar_0x8005 == MOVETUTOR_FRENZY_PLANT)
-        FlagSet(FLAG_TUTOR_FRENZY_PLANT);
-    else if (gSpecialVar_0x8005 == MOVETUTOR_BLAST_BURN)
-        FlagSet(FLAG_TUTOR_BLAST_BURN);
-    else
-        FlagSet(FLAG_TUTOR_HYDRO_CANNON);
-    if (FlagGet(FLAG_TUTOR_FRENZY_PLANT) == TRUE)
-        r4++;
-    if (FlagGet(FLAG_TUTOR_BLAST_BURN) == TRUE)
-        r4++;
-    if (FlagGet(FLAG_TUTOR_HYDRO_CANNON) == TRUE)
-        r4++;
-    if (r4 == 3)
-        return TRUE;
-    else
+    if (I_REUSABLE_TMS)
+    {
         return FALSE;
+    }
+
+    switch (gSpecialVar_0x8005)
+    {
+        case MOVE_FRENZY_PLANT:
+            FlagSet(FLAG_TUTOR_FRENZY_PLANT);
+            break;
+        case MOVE_BLAST_BURN:
+            FlagSet(FLAG_TUTOR_BLAST_BURN);
+            break;
+        case MOVE_HYDRO_CANNON:
+            FlagSet(FLAG_TUTOR_HYDRO_CANNON);
+            break;
+    }
+
+    return (FlagGet(FLAG_TUTOR_FRENZY_PLANT) == TRUE)
+        && (FlagGet(FLAG_TUTOR_BLAST_BURN) == TRUE)
+        && (FlagGet(FLAG_TUTOR_HYDRO_CANNON) == TRUE);
 }
 
 bool8 CutMoveRuinValleyCheck(void)
@@ -2406,6 +2473,7 @@ static void MoveDeoxysObject(u8 num)
 {
     u8 mapObjId;
     LoadPalette(sDeoxysObjectPals[num], OBJ_PLTT_ID(10), PLTT_SIZEOF(4));
+    UpdateSpritePaletteWithWeather(10, FALSE);
     ApplyGlobalFieldPaletteTint(10);
     TryGetObjectEventIdByLocalIdAndMap(LOCALID_BIRTH_ISLAND_EXTERIOR_ROCK, gSaveBlock1Ptr->location.mapNum, gSaveBlock1Ptr->location.mapGroup, &mapObjId);
     if (num == 0)
@@ -2552,4 +2620,89 @@ static void Task_WingFlapSound(u8 taskId)
     }
     if (data[0] == gSpecialVar_0x8004 - 1)
         DestroyTask(taskId);
+}
+
+bool8 InPokemonCenter(void)
+{
+    static const u16 sPokemonCenters[] =
+    {
+        MAP_VIRIDIAN_CITY_POKEMON_CENTER_1F,
+        MAP_PEWTER_CITY_POKEMON_CENTER_1F,
+        MAP_ROUTE4_POKEMON_CENTER_1F,
+        MAP_CERULEAN_CITY_POKEMON_CENTER_1F,
+        MAP_VERMILION_CITY_POKEMON_CENTER_1F,
+        MAP_ROUTE10_POKEMON_CENTER_1F,
+        MAP_LAVENDER_TOWN_POKEMON_CENTER_1F,
+        MAP_CELADON_CITY_POKEMON_CENTER_1F,
+        MAP_FUCHSIA_CITY_POKEMON_CENTER_1F,
+        MAP_SAFFRON_CITY_POKEMON_CENTER_1F,
+        MAP_CINNABAR_ISLAND_POKEMON_CENTER_1F,
+        MAP_INDIGO_PLATEAU_POKEMON_CENTER_1F,
+        MAP_ONE_ISLAND_POKEMON_CENTER_1F,
+        MAP_TWO_ISLAND_POKEMON_CENTER_1F,
+        MAP_THREE_ISLAND_POKEMON_CENTER_1F,
+        MAP_FOUR_ISLAND_POKEMON_CENTER_1F,
+        MAP_FIVE_ISLAND_POKEMON_CENTER_1F,
+        MAP_SIX_ISLAND_POKEMON_CENTER_1F,
+        MAP_SEVEN_ISLAND_POKEMON_CENTER_1F,
+        MAP_BATTLE_COLOSSEUM_2P,
+        MAP_TRADE_CENTER,
+        MAP_RECORD_CORNER,
+        MAP_BATTLE_COLOSSEUM_4P,
+        MAP_UNDEFINED
+    };
+
+    int i;
+    u16 map = (gSaveBlock1Ptr->location.mapGroup << 8) + gSaveBlock1Ptr->location.mapNum;
+
+    for (i = 0; sPokemonCenters[i] != MAP_UNDEFINED; i++)
+    {
+        if (sPokemonCenters[i] == map)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void PreparePartyForSkyBattle(void)
+{
+    int i, participatingPokemonSlot = 0;
+    u8 partyCount = CalculatePlayerPartyCount();
+
+    FlagSet(B_FLAG_SKY_BATTLE);
+    SavePlayerParty();
+
+    for (i = 0; i < partyCount; i++)
+    {
+        struct Pokemon* pokemon = &gPlayerParty[i];
+
+        if (CanMonParticipateInSkyBattle(pokemon))
+            participatingPokemonSlot += 1 << i;
+        else
+            ZeroMonData(pokemon);
+    }
+    VarSet(B_VAR_SKY_BATTLE,participatingPokemonSlot);
+    CompactPartySlots();
+}
+
+void TrySkyBattle(void)
+{
+    int i;
+
+    if (B_VAR_SKY_BATTLE == 0 || B_FLAG_SKY_BATTLE == 0)
+    {
+        LockPlayerFieldControls();
+        ScriptContext_SetupScript(Debug_FlagsAndVarNotSetBattleConfigMessage);
+        return;
+    }
+    for (i = 0; i < CalculatePlayerPartyCount(); i++)
+    {
+        struct Pokemon* pokemon = &gPlayerParty[i];
+        if (CanMonParticipateInSkyBattle(pokemon) && GetMonData(pokemon, MON_DATA_HP, NULL) > 0)
+        {
+            PreparePartyForSkyBattle();
+            gSpecialVar_Result = TRUE;
+            return;
+        }
+    }
+    gSpecialVar_Result = FALSE;
 }

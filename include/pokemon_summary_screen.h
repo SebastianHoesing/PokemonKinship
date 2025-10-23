@@ -3,8 +3,12 @@
 
 #include "main.h"
 
-extern const u8 *const gMoveDescriptionPointers[];
-extern const u8 *const gNatureNamePointers[];
+extern const u8 gNotDoneYetDescription[];
+extern const struct SpriteTemplate gSpriteTemplate_MoveTypes;
+extern const struct CompressedSpriteSheet gSpriteSheet_MoveTypes;
+extern const struct CompressedSpriteSheet gSpriteSheet_CategoryIcons;
+extern const struct SpritePalette gSpritePal_CategoryIcons;
+extern const struct SpriteTemplate gSpriteTemplate_CategoryIcons;
 
 void ShowSelectMovePokemonSummaryScreen(struct Pokemon *, u8, u8, MainCallback, u16);
 u8 GetMoveSlotToReplace(void);
@@ -13,6 +17,7 @@ void SummaryScreen_DestroyUnknownTask(void);
 u8 GetLastViewedMonIndex(void);
 void ShowPokemonSummaryScreen(struct Pokemon * party, u8 cursorPos, u8 lastIdx, void (*callback)(void), u8 a4);
 void SetPokemonSummaryScreenMode(u8);
+void SummaryScreen_SetAnimDelayTaskId(u8 taskId);
 
 // The Pokemon Summary Screen can operate in different modes. Certain features,
 // such as move re-ordering, are available in the different modes.
@@ -49,11 +54,29 @@ enum PokemonSummaryScreenState3270
 
 enum PokemonSummaryScreenStat
 {
+    PSS_STAT_HP,
     PSS_STAT_ATK,
     PSS_STAT_DEF,
     PSS_STAT_SPA,
     PSS_STAT_SPD,
     PSS_STAT_SPE
+};
+
+enum PokemonSummaryScreenSkillPageMode
+{
+    PSS_SKILL_PAGE_STATS,
+    PSS_SKILL_PAGE_IVS,
+    PSS_SKILL_PAGE_EVS,
+    PSS_SKILL_PAGE_MODE_COUNT
+};
+
+struct StatData {
+    u8 monDataStat;
+    u8 monDataStat2;
+    u8 monDataEv;
+    u8 monDataIv;
+    u8 monDataHyperTrained;
+    u8 pssStat;
 };
 
 #define TAG_PSS_UNK_64 0x64

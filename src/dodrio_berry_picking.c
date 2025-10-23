@@ -1,5 +1,9 @@
 #include "global.h"
-#include "gflib.h"
+#include "bg.h"
+#include "gpu_regs.h"
+#include "malloc.h"
+#include "string_util.h"
+#include "decompress.h"
 #include "dodrio_berry_picking.h"
 #include "dynamic_placeholder_text_util.h"
 #include "event_data.h"
@@ -9,14 +13,14 @@
 #include "m4a.h"
 #include "menu.h"
 #include "minigame_countdown.h"
-#include "new_menu_helpers.h"
+#include "palette.h"
 #include "random.h"
 #include "save.h"
 #include "script.h"
+#include "sound.h"
 #include "strings.h"
 #include "task.h"
 #include "text_window.h"
-#include "text_window_graphics.h"
 #include "constants/songs.h"
 #include "constants/sound.h"
 #include "constants/items.h"
@@ -2843,27 +2847,6 @@ static void GetScoreResults(struct DodrioGame_ScoreResults * dst, u8 playerId)
     *dst = sGame->scoreResults[playerId];
 }
 
-// Unused
-// Returns where the specified player's score ranks, 0 being first (highest score)
-static u8 GetScoreRanking(u8 playerId)
-{
-    u8 i, ranking = 0;
-    u8 numPlayers = sGame->numPlayers;
-    u32 playersScore, scores[MAX_RFU_PLAYERS] = {0};
-
-    for (i = 0; i < numPlayers; i++)
-        scores[i] = GetScore(i);
-
-    playersScore = scores[playerId];
-    for (i = 0; i < MAX_RFU_PLAYERS; i++)
-    {
-        if (i != playerId && playersScore < scores[i])
-            ranking++;
-    }
-
-    return ranking;
-}
-
 enum {
     PRIZE_RECEIVED,
     PRIZE_FILLED_BAG,
@@ -2955,8 +2938,6 @@ static const u8 sRecordNumYCoords[NUM_RECORD_TYPES][2] = {{24}, {40}, {70}};
 
 static void Task_ShowDodrioBerryPickingRecords(u8 taskId)
 {
-    struct WindowTemplate window;
-    s32 i, width, widthCurr;
     s16 *data = gTasks[taskId].data;
 
     switch (tState)
@@ -3064,26 +3045,6 @@ static const u8 *const sPlaceholderPlayerNames[] =
     sText_Letters,
     sText_Digits
 };
-
-static void Debug_UpdateNumPlayers(void)
-{
-    sGame->numPlayers = GetLinkPlayerCount();
-}
-
-static void Debug_SetPlayerNamesAndResults(void)
-{
-    u8 i, playerId;
-
-    for (playerId = sGame->numPlayers; playerId < ARRAY_COUNT(sPlaceholderPlayerNames); playerId++)
-        StringCopy(gLinkPlayers[playerId].name, sPlaceholderPlayerNames[playerId]);
-
-    sGame->numPlayers = MAX_RFU_PLAYERS;
-    for (i = 0; i < NUM_BERRY_TYPES; i++)
-    {
-        for (playerId = 0; playerId < sGame->numPlayers; playerId++)
-            sGame->berryResults[playerId][i] = sDebug_BerryResults[playerId][i];
-    }
-}
 
 static const struct BgTemplate sBgTemplates[] =
 {
@@ -3558,7 +3519,7 @@ static void LoadDodrioGfx(void)
     struct SpritePalette normal = {sDodrioNormal_Pal, PALTAG_DODRIO_NORMAL};
     struct SpritePalette shiny = {sDodrioShiny_Pal, PALTAG_DODRIO_SHINY};
 
-    LZ77UnCompWram(sDodrio_Gfx, ptr);
+    DecompressDataWithHeaderWram(sDodrio_Gfx, ptr);
     if (ptr)
     {
         struct SpriteSheet sheet = {ptr, 0x3000, GFXTAG_DODRIO};
@@ -3741,7 +3702,7 @@ static void CreateStatusBarSprites(void)
     void *ptr = AllocZeroed(0x180);
     struct SpritePalette pal = {sStatus_Pal, PALTAG_STATUS};
 
-    LZ77UnCompWram(sStatus_Gfx, ptr);
+    DecompressDataWithHeaderWram(sStatus_Gfx, ptr);
     // This check should be one line up.
     if (ptr)
     {
@@ -3882,7 +3843,7 @@ static void LoadBerryGfx(void)
     void *ptr = AllocZeroed(0x480);
     struct SpritePalette pal = {sBerries_Pal, PALTAG_BERRIES};
 
-    LZ77UnCompWram(sBerries_Gfx, ptr);
+    DecompressDataWithHeaderWram(sBerries_Gfx, ptr);
     if (ptr)
     {
         struct SpriteSheet sheet = {ptr, 0x480, GFXTAG_BERRIES};
@@ -3986,13 +3947,6 @@ static void SetBerryAnim(u16 id, u8 animNum)
     StartSpriteAnim(&gSprites[*sBerrySpriteIds[id]], animNum);
 }
 
-// Unused
-static void UnusedSetSpritePos(u8 spriteId)
-{
-    gSprites[spriteId].x = 20 * spriteId + 50;
-    gSprites[spriteId].y = 50;
-}
-
 // Gamefreak made a mistake there and goes out of bounds for the data array as it holds 8 elements
 // in turn overwriting sprite's subpriority and subsprites fields.
 #ifdef UBFIX
@@ -4031,7 +3985,7 @@ static void CreateCloudSprites(void)
     void *ptr = AllocZeroed(0x400);
     struct SpritePalette pal = {sCloud_Pal, PALTAG_CLOUD};
 
-    LZ77UnCompWram(sCloud_Gfx, ptr);
+    DecompressDataWithHeaderWram(sCloud_Gfx, ptr);
     if (ptr)
     {
         struct SpriteSheet sheet = {ptr, 0x400, GFXTAG_CLOUD};
@@ -4160,8 +4114,8 @@ static void ResetBerryAndStatusBarSprites(void)
 
 static void LoadWindowFrameGfx(u8 frameId)
 {
-    LoadBgTiles(BG_INTERFACE, GetUserWindowGraphics(frameId)->tiles, 0x120, 1);
-    LoadPalette(GetUserWindowGraphics(frameId)->palette, BG_PLTT_ID(10), PLTT_SIZE_4BPP);
+    LoadBgTiles(BG_INTERFACE, GetWindowFrameTilesPal(frameId)->tiles, 0x120, 1);
+    LoadPalette(GetWindowFrameTilesPal(frameId)->pal, BG_PLTT_ID(10), PLTT_SIZE_4BPP);
 }
 
 static void DBP_LoadStdWindowGfx(void)
@@ -4216,12 +4170,6 @@ static void InitGameGfx(struct DodrioGame_Gfx * ptr)
     sGfx->playAgainState = PLAY_AGAIN_NONE;
     sGfx->taskId = CreateTask(Task_TryRunGfxFunc, 3);
     SetGfxFunc(LoadGfx);
-}
-
-// Unused
-static void FreeAllWindowBuffers_(void)
-{
-    FreeAllWindowBuffers();
 }
 
 struct WinCoords
@@ -4471,7 +4419,7 @@ static void PrintRankedScores(u8 numPlayers_)
         AddTextPrinterParameterized3(sGfx->windowIds[1], FONT_SMALL, 28, sRankingYCoords[i], sTextColorTable[colorsId], TEXT_SKIP_DRAW, name);
         ConvertIntToDecimalStringN(numString, points, STR_CONV_MODE_RIGHT_ALIGN, 7);
         numWidth = GetStringWidth(FONT_SMALL, numString, -1);
-        AddTextPrinterParameterized(sGfx->windowIds[1], FONT_SMALL, numString, x - 35, sRankingYCoords[i], TEXT_SKIP_DRAW, NULL);
+        AddTextPrinterParameterized(sGfx->windowIds[1], FONT_SMALL, numString, x - numWidth, sRankingYCoords[i], TEXT_SKIP_DRAW, NULL);
         AddTextPrinterParameterized(sGfx->windowIds[1], FONT_SMALL, gText_SpacePoints, x, sRankingYCoords[i], TEXT_SKIP_DRAW, NULL);
     }
 }

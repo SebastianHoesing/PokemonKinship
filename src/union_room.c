@@ -22,7 +22,6 @@
 #include "menu.h"
 #include "mystery_gift.h"
 #include "mystery_gift_menu.h"
-#include "new_menu_helpers.h"
 #include "overworld.h"
 #include "party_menu.h"
 #include "pokemon_jump.h"
@@ -199,10 +198,9 @@ static EWRAM_DATA union
     struct WirelessLink_Group *group;
     struct WirelessLink_URoom *uRoom;
 } sWirelessLinkMain = {};
-static EWRAM_DATA u32 sUnused = 0;
 EWRAM_DATA struct RfuGameCompatibilityData gRfuPartnerCompatibilityData = {};
 EWRAM_DATA u16 gUnionRoomOfferedSpecies = SPECIES_NONE;
-EWRAM_DATA u8 gUnionRoomRequestedMonType = TYPE_NORMAL;
+EWRAM_DATA u8 gUnionRoomRequestedMonType = TYPE_NONE;
 static EWRAM_DATA struct UnionRoomTrade sUnionRoomTrade = {};
 
 static struct WirelessLink_Leader * sLeader;
@@ -971,9 +969,6 @@ static void Task_TryJoinLinkGroup(u8 taskId)
             id = ListMenu_ProcessInput(data->listTaskId);
             if (JOY_NEW(A_BUTTON) && id != LIST_NOTHING_CHOSEN)
             {
-                // this unused variable along with the assignment is needed to match
-                u32 activity = data->playerList->players[id].rfu.data.activity;
-
                 if (data->playerList->players[id].groupScheduledAnim == UNION_ROOM_SPAWN_IN && !data->playerList->players[id].rfu.data.startedActivity)
                 {
                     u32 readyStatus = IsTryingToTradeAcrossVersionTooSoon(data, id);
@@ -1641,7 +1636,6 @@ static void Task_StartActivity(u8 taskId)
 static void Task_RunScriptAndFadeToActivity(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
-    u16 *sendBuff = (u16 *)(gBlockSendBuffer);
 
     switch (data[0])
     {
@@ -1969,9 +1963,6 @@ static void Task_CardOrNewsWithFriend(u8 taskId)
             id = ListMenu_ProcessInput(data->listTaskId);
             if (JOY_NEW(A_BUTTON) && id != LIST_NOTHING_CHOSEN)
             {
-                // this unused variable along with the assignment is needed to match
-                u32 activity = data->playerList->players[id].rfu.data.activity;
-
                 if (data->playerList->players[id].groupScheduledAnim == UNION_ROOM_SPAWN_IN && !data->playerList->players[id].rfu.data.startedActivity)
                 {
                     data->leaderId = id;
@@ -2869,7 +2860,7 @@ static void Task_RunUnionRoom(u8 taskId)
             }
             else
             {
-                StringCopy(gStringVar1, gSpeciesNames[GetHostRfuGameData()->tradeSpecies]);
+                StringCopy(gStringVar1, gSpeciesInfo[GetHostRfuGameData()->tradeSpecies].speciesName);
                 ConvertIntToDecimalStringN(gStringVar2, GetHostRfuGameData()->tradeLevel, STR_CONV_MODE_LEFT_ALIGN, 3);
                 StringExpandPlaceholders(gStringVar4, gText_UR_CancelRegistrationOfMon);
             }
@@ -3001,12 +2992,12 @@ static void Task_RunUnionRoom(u8 taskId)
                     break;
                 case UR_TRADE_NOTYPE:
                     CopyAndTranslatePlayerName2(gStringVar1, uroom->playerList->players[input]);
-                    StringCopy(gStringVar2, gTypeNames[uroom->playerList->players[input].rfu.data.tradeType]);
+                    StringCopy(gStringVar2, gTypesInfo[uroom->playerList->players[input].rfu.data.tradeType].name);
                     ScheduleFieldMessageWithFollowupState(UR_STATE_TRADING_BOARD_LOAD, gText_UR_DontHaveTypeTrainerWants);
                     break;
                 case UR_TRADE_NOEGG:
                     CopyAndTranslatePlayerName2(gStringVar1, uroom->playerList->players[input]);
-                    StringCopy(gStringVar2, gTypeNames[uroom->playerList->players[input].rfu.data.tradeType]);
+                    StringCopy(gStringVar2, gTypesInfo[uroom->playerList->players[input].rfu.data.tradeType].name);
                     ScheduleFieldMessageWithFollowupState(UR_STATE_TRADING_BOARD_LOAD, gText_UR_DontHaveEggTrainerWants);
                     break;
                 }
@@ -3413,7 +3404,7 @@ static u8 CreateTask_ListenForWonderDistributor(struct RfuIncomingPlayerList * m
 
 static bool32 UR_PrintFieldMessage(const u8 *src)
 {
-    LoadStdWindowFrameGfx();
+    LoadMessageBoxAndBorderGfx();
     DrawDialogueFrame(0, 1);
     StringExpandPlaceholders(gStringVar4, src);
     AddTextPrinterWithCustomSpeedForMessage(FALSE, 1);
@@ -3422,7 +3413,7 @@ static bool32 UR_PrintFieldMessage(const u8 *src)
 
 static bool32 UR_RunTextPrinters(void)
 {
-    if (!RunTextPrinters_CheckPrinter0Active())
+    if (!RunTextPrintersAndIsPrinter0Active())
         return TRUE;
     else
         return FALSE;
@@ -3433,14 +3424,14 @@ static bool8 PrintOnTextbox(u8 *textState, const u8 *str)
     switch (*textState)
     {
     case 0:
-        LoadStdWindowFrameGfx();
+        LoadMessageBoxAndBorderGfx();
         DrawDialogueFrame(0, 1);
         StringExpandPlaceholders(gStringVar4, str);
-        AddTextPrinterForMessage(TRUE);
+        AddTextPrinterForMessage_2(TRUE);
         (*textState)++;
         break;
     case 1:
-        if (!RunTextPrinters_CheckPrinter0Active())
+        if (!RunTextPrintersAndIsPrinter0Active())
         {
             *textState = 0;
             return TRUE;
@@ -3892,7 +3883,7 @@ static s32 UnionRoomGetPlayerInteractionResponse(struct RfuPlayerList * list, bo
     {
         CopyAndTranslatePlayerName2(gStringVar1, *player);
         if (overrideGender)
-            playerGender = (player->rfu.data.compatibility.playerTrainerId[overrideGender + 1] >> 3) & 1;
+            playerGender = (player->rfu.data.compatibility.playerTrainerId[overrideGender - 1] >> 3) & 1;
 
         switch (player->rfu.data.activity & 0x3F)
         {
@@ -3935,7 +3926,7 @@ static void TradeBoardPrintItemInfo(u8 windowId, u8 y, struct RfuGameData * data
     else
     {
         BlitMenuInfoIcon(windowId, type + 1, 68, y);
-        PrintUnionRoomText(windowId, FONT_NORMAL, gSpeciesNames[species], 118, y, colorIdx);
+        PrintUnionRoomText(windowId, FONT_NORMAL, gSpeciesInfo[species].speciesName, 118, y, colorIdx);
         ConvertIntToDecimalStringN(levelStr, level, STR_CONV_MODE_LEFT_ALIGN, 3);
         PrintUnionRoomText(windowId, FONT_NORMAL, levelStr, GetStringRightAlignXOffset(2, levelStr, 218), y, colorIdx);
     }
@@ -4076,13 +4067,13 @@ static s32 GetChatLeaderActionRequestMessage(u8 *dst, u32 gender, u16 *activityD
         break;
     case ACTIVITY_TRADE | IN_UNION_ROOM:
         ConvertIntToDecimalStringN(uroom->activityRequestStrbufs[0], sUnionRoomTrade.playerLevel, STR_CONV_MODE_LEFT_ALIGN, 3);
-        StringCopy(uroom->activityRequestStrbufs[1], gSpeciesNames[sUnionRoomTrade.playerSpecies]);
+        StringCopy(uroom->activityRequestStrbufs[1], gSpeciesInfo[sUnionRoomTrade.playerSpecies].speciesName);
         for (i = 0; i < RFU_CHILD_MAX; i++)
         {
             if (gRfuLinkStatus->partner[i].serialNo == RFU_SERIAL_GAME)
             {
                 ConvertIntToDecimalStringN(uroom->activityRequestStrbufs[2], activityData[2], STR_CONV_MODE_LEFT_ALIGN, 3);
-                StringCopy(uroom->activityRequestStrbufs[3], gSpeciesNames[activityData[1]]);
+                StringCopy(uroom->activityRequestStrbufs[3], gSpeciesInfo[activityData[1]].speciesName);
                 species = activityData[1];
                 break;
             }
@@ -4280,7 +4271,7 @@ static void ViewURoomPartnerTrainerCard(u8 *unused, struct WirelessLink_URoom * 
 
     DynamicPlaceholderTextUtil_Reset();
 
-    StringCopy(uroom->trainerCardStrBuffer[0], gTrainerClassNames[GetUnionRoomTrainerClass()]);
+    StringCopy(uroom->trainerCardStrBuffer[0], gTrainerClasses[GetUnionRoomTrainerClass()].name);
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(0, uroom->trainerCardStrBuffer[0]);
 
     DynamicPlaceholderTextUtil_SetPlaceholderPtr(1, trainerCard->rse.playerName);

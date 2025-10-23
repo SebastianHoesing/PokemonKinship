@@ -1,4 +1,5 @@
 #include "global.h"
+#include "decompress.h"
 #include "gflib.h"
 #include "scanline_effect.h"
 #include "task.h"
@@ -8,7 +9,6 @@
 #include "region_map.h"
 #include "party_menu.h"
 #include "field_effect.h"
-#include "new_menu_helpers.h"
 #include "menu.h"
 #include "strings.h"
 #include "map_preview_screen.h"
@@ -388,8 +388,6 @@ static void InitFlyMap(void);
 static void FreeFlyMap(u8);
 static void SetFlyWarpDestination(u16);
 
-#include "data/region_map/region_map_entry_strings.h"
-
 static const u16 sTopBar_Pal[] = INCBIN_U16("graphics/region_map/top_bar.gbapal"); // Palette for the top bar and dynamic text color
 static const u16 sMapCursor_Pal[] = INCBIN_U16("graphics/region_map/cursor.gbapal");
 static const u16 sPlayerIcon_RedPal[] = INCBIN_U16("graphics/region_map/player_icon_red.gbapal");
@@ -553,7 +551,7 @@ static const u8 sSeviiMapsecs[3][30] = {
         MAPSEC_WATER_LABYRINTH,
         MAPSEC_FIVE_ISLE_MEADOW,
         MAPSEC_MEMORIAL_PILLAR,
-        MAPSEC_NAVEL_ROCK,
+        MAPSEC_NAVEL_ROCK_FRLG,
         MAPSEC_ICEFALL_CAVE,
         MAPSEC_ROCKET_WAREHOUSE,
         MAPSEC_LOST_CAVE,
@@ -577,10 +575,10 @@ static const u8 sSeviiMapsecs[3][30] = {
         MAPSEC_TRAINER_TOWER_2,
         MAPSEC_DOTTED_HOLE,
         MAPSEC_PATTERN_BUSH,
-        MAPSEC_ALTERING_CAVE,
+        MAPSEC_ALTERING_CAVE_FRLG,
         MAPSEC_TANOBY_CHAMBERS,
         MAPSEC_TANOBY_KEY,
-        MAPSEC_BIRTH_ISLAND,
+        MAPSEC_BIRTH_ISLAND_FRLG,
         MAPSEC_MONEAN_CHAMBER,
         MAPSEC_LIPTOO_CHAMBER,
         MAPSEC_WEEPTH_CHAMBER,
@@ -637,82 +635,84 @@ static const union AnimCmd *const sAnims_SwitchMapCursor[] = {
     sAnim_SwitchMapCursor
 };
 
+#include "data/region_map/region_map_entries.h"
+
 static const struct DungeonMapInfo sDungeonInfo[] = {
     {
         .id = MAPSEC_VIRIDIAN_FOREST,
-        .name = sMapsecName_VIRIDIAN_FOREST,
+        .name = sMapName_VIRIDIAN_FOREST,
         .desc = gText_RegionMap_AreaDesc_ViridianForest
     }, {
         .id = MAPSEC_MT_MOON,
-        .name = sMapsecName_MT__MOON,
+        .name = sMapName_MT__MOON,
         .desc = gText_RegionMap_AreaDesc_MtMoon
     }, {
         .id = MAPSEC_DIGLETTS_CAVE,
-        .name = sMapsecName_DIGLETT_S_CAVE,
+        .name = sMapName_DIGLETT_S_CAVE,
         .desc = gText_RegionMap_AreaDesc_DiglettsCave
     }, {
         .id = MAPSEC_KANTO_VICTORY_ROAD,
-        .name = sMapsecName_VICTORY_ROAD,
+        .name = sMapName_VICTORY_ROAD,
         .desc = gText_RegionMap_AreaDesc_VictoryRoad
     }, {
         .id = MAPSEC_POKEMON_MANSION,
-        .name = sMapsecName_POK__MON_MANSION,
+        .name = sMapName_POK__MON_MANSION,
         .desc = gText_RegionMap_AreaDesc_PokemonMansion
     }, {
         .id = MAPSEC_KANTO_SAFARI_ZONE,
-        .name = sMapsecName_SAFARI_ZONE,
+        .name = sMapName_SAFARI_ZONE,
         .desc = gText_RegionMap_AreaDesc_SafariZone
     }, {
         .id = MAPSEC_ROCK_TUNNEL,
-        .name = sMapsecName_ROCK_TUNNEL,
+        .name = sMapName_ROCK_TUNNEL,
         .desc = gText_RegionMap_AreaDesc_RockTunnel
     }, {
         .id = MAPSEC_SEAFOAM_ISLANDS,
-        .name = sMapsecName_SEAFOAM_ISLANDS,
+        .name = sMapName_SEAFOAM_ISLANDS,
         .desc = gText_RegionMap_AreaDesc_SeafoamIslands
     }, {
         .id = MAPSEC_POKEMON_TOWER,
-        .name = sMapsecName_POK__MON_TOWER,
+        .name = sMapName_POK__MON_TOWER,
         .desc = gText_RegionMap_AreaDesc_PokemonTower
     }, {
         .id = MAPSEC_CERULEAN_CAVE,
-        .name = sMapsecName_CERULEAN_CAVE,
+        .name = sMapName_CERULEAN_CAVE,
         .desc = gText_RegionMap_AreaDesc_CeruleanCave
     }, {
         .id = MAPSEC_POWER_PLANT,
-        .name = sMapsecName_POWER_PLANT,
+        .name = sMapName_POWER_PLANT,
         .desc = gText_RegionMap_AreaDesc_PowerPlant
     }, {
         .id = MAPSEC_MT_EMBER,
-        .name = sMapsecName_MT__EMBER,
+        .name = sMapName_MT__EMBER,
         .desc = gText_RegionMap_AreaDesc_MtEmber
     }, {
         .id = MAPSEC_BERRY_FOREST,
-        .name = sMapsecName_BERRY_FOREST,
+        .name = sMapName_BERRY_FOREST,
         .desc = gText_RegionMap_AreaDesc_BerryForest
     }, {
         .id = MAPSEC_ICEFALL_CAVE,
-        .name = sMapsecName_ICEFALL_CAVE,
+        .name = sMapName_ICEFALL_CAVE,
         .desc = gText_RegionMap_AreaDesc_IcefallCave
     }, {
         .id = MAPSEC_LOST_CAVE,
-        .name = sMapsecName_LOST_CAVE,
+        .name = sMapName_LOST_CAVE,
         .desc = gText_RegionMap_AreaDesc_LostCave
     }, {
         .id = MAPSEC_TANOBY_CHAMBERS,
-        .name = sMapsecName_TANOBY_CHAMBERS,
+        .name = sMapName_TANOBY_CHAMBERS,
         .desc = gText_RegionMap_AreaDesc_TanobyRuins
     }, {
-        .id = MAPSEC_ALTERING_CAVE,
-        .name = sMapsecName_ALTERING_CAVE,
+        .id = MAPSEC_ALTERING_CAVE_FRLG,
+        .name = sMapName_ALTERING_CAVE,
         .desc = gText_RegionMap_AreaDesc_AlteringCave
     }, {
         .id = MAPSEC_PATTERN_BUSH,
-        .name = sMapsecName_PATTERN_BUSH,
+        .name = sMapName_PATTERN_BUSH,
         .desc = gText_RegionMap_AreaDesc_PatternBush
     }, {
         .id = MAPSEC_DOTTED_HOLE,
-        .name = sMapsecName_DOTTED_HOLE,
+        .name = sMapName_DOTTED_HOLE,
         .desc = gText_RegionMap_AreaDesc_DottedHole
     }
 };
@@ -818,7 +818,6 @@ static const u8 sWinRegs[][2] = {
 
 static const u8 sTextColors[] = {TEXT_DYNAMIC_COLOR_6, TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY};
 
-#include "data/region_map/region_map_entries.h"
 
 #include "data/region_map/region_map_layout_kanto.h"
 #include "data/region_map/region_map_layout_sevii_123.h"
@@ -912,7 +911,7 @@ static const u8 sMapFlyDestinations[][3] = {
     [MAPSEC_SEVII_ISLE_22       - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_SEVII_ISLE_23       - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_SEVII_ISLE_24       - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
-    [MAPSEC_NAVEL_ROCK          - KANTO_MAPSEC_START] = {MAP(MAP_NAVEL_ROCK_EXTERIOR),                   HEAL_LOCATION_NONE},
+    [MAPSEC_NAVEL_ROCK_FRLG     - KANTO_MAPSEC_START] = {MAP(MAP_NAVEL_ROCK_EXTERIOR),                   HEAL_LOCATION_NONE},
     [MAPSEC_MT_EMBER            - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_BERRY_FOREST        - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_ICEFALL_CAVE        - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
@@ -921,11 +920,11 @@ static const u8 sMapFlyDestinations[][3] = {
     [MAPSEC_DOTTED_HOLE         - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_LOST_CAVE           - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_PATTERN_BUSH        - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
-    [MAPSEC_ALTERING_CAVE       - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
+    [MAPSEC_ALTERING_CAVE_FRLG  - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_TANOBY_CHAMBERS     - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_THREE_ISLE_PATH     - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_TANOBY_KEY          - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
-    [MAPSEC_BIRTH_ISLAND        - KANTO_MAPSEC_START] = {MAP(MAP_BIRTH_ISLAND_EXTERIOR),                 HEAL_LOCATION_NONE},
+    [MAPSEC_BIRTH_ISLAND_FRLG   - KANTO_MAPSEC_START] = {MAP(MAP_BIRTH_ISLAND_EXTERIOR),                 HEAL_LOCATION_NONE},
     [MAPSEC_MONEAN_CHAMBER      - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_LIPTOO_CHAMBER      - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
     [MAPSEC_WEEPTH_CHAMBER      - KANTO_MAPSEC_START] = {MAP(MAP_PALLET_TOWN),                           HEAL_LOCATION_NONE},
@@ -1132,19 +1131,19 @@ static bool8 LoadRegionMapGfx(void)
             return FALSE;
         break;
     case 5:
-        LZ77UnCompWram(sKanto_Tilemap, sRegionMap->layouts[REGIONMAP_KANTO]);
+        DecompressDataWithHeaderWram(sKanto_Tilemap, sRegionMap->layouts[REGIONMAP_KANTO]);
         break;
     case 6:
-        LZ77UnCompWram(sSevii123_Tilemap, sRegionMap->layouts[REGIONMAP_SEVII123]);
+        DecompressDataWithHeaderWram(sSevii123_Tilemap, sRegionMap->layouts[REGIONMAP_SEVII123]);
         break;
     case 7:
-        LZ77UnCompWram(sSevii45_Tilemap, sRegionMap->layouts[REGIONMAP_SEVII45]);
+        DecompressDataWithHeaderWram(sSevii45_Tilemap, sRegionMap->layouts[REGIONMAP_SEVII45]);
         break;
     case 8:
-        LZ77UnCompWram(sSevii67_Tilemap, sRegionMap->layouts[REGIONMAP_SEVII67]);
+        DecompressDataWithHeaderWram(sSevii67_Tilemap, sRegionMap->layouts[REGIONMAP_SEVII67]);
         break;
     default:
-        LZ77UnCompWram(sBackground_Tilemap, sRegionMap->layouts[REGIONMAP_COUNT]);
+        DecompressDataWithHeaderWram(sBackground_Tilemap, sRegionMap->layouts[REGIONMAP_COUNT]);
         return TRUE;
     }
     sRegionMap->loadGfxState++;
@@ -1299,12 +1298,6 @@ static void Task_RegionMap(u8 taskId)
         }
         break;
     }
-}
-
-// Unused
-static void SetMainMapTask(TaskFunc taskFunc)
-{
-    sRegionMap->mainTask = taskFunc;
 }
 
 static TaskFunc GetMainMapTask(void)
@@ -1473,11 +1466,11 @@ static void DisplayCurrentDungeonName(void)
          descOffset = mapsecId - KANTO_MAPSEC_START;
          SetDispCnt(1, FALSE);
          sRegionMap->dungeonWinTop = TRUE;
-         sRegionMap->dungeonWinLeft = StringLength(sMapNames[descOffset]);
+         sRegionMap->dungeonWinLeft = StringLength(gRegionMapEntries[descOffset].name);
          sRegionMap->dungeonWinRight = sRegionMap->dungeonWinLeft * 10 + 50;
          sRegionMap->dungeonWinBottom = 48;
          FillWindowPixelBuffer(WIN_DUNGEON_NAME, PIXEL_FILL(0));
-         StringCopy(sRegionMap->dungeonName, sMapNames[descOffset]);
+         StringCopy(sRegionMap->dungeonName, gRegionMapEntries[descOffset].name);
          AddTextPrinterParameterized3(WIN_DUNGEON_NAME, FONT_NORMAL, 12, 2, sTextColorTable[GetSelectedMapsecType(LAYER_DUNGEON) - 2], 0, sRegionMap->dungeonName);
          PutWindowTilemap(WIN_DUNGEON_NAME);
          CopyWindowToVram(WIN_DUNGEON_NAME, COPYWIN_FULL);
@@ -1544,12 +1537,6 @@ static void SetSelectedRegionMap(u8 region)
     sRegionMap->selectedRegion = region;
 }
 
-// Unused
-static void SetRegionMapPlayerIsOn(u8 region)
-{
-    sRegionMap->playersRegion = region;
-}
-
 static void InitSwitchMapMenu(u8 whichMap, u8 taskId, TaskFunc taskFunc)
 {
     sSwitchMapMenu = AllocZeroed(sizeof(struct SwitchMapMenu));
@@ -1565,20 +1552,20 @@ static void InitSwitchMapMenu(u8 whichMap, u8 taskId, TaskFunc taskFunc)
     switch (sSwitchMapMenu->maxSelection)
     {
     case 1:
-        LZ77UnCompWram(sSwitchMap_KantoSevii123_Tilemap, sSwitchMapMenu->switchMapTilemap);
+        DecompressDataWithHeaderWram(sSwitchMap_KantoSevii123_Tilemap, sSwitchMapMenu->switchMapTilemap);
         sSwitchMapMenu->yOffset = 6;
         break;
     case 2: // never reached
-        LZ77UnCompWram(sSwitchMap_KantoSeviiAll2_Tilemap, sSwitchMapMenu->switchMapTilemap);
+        DecompressDataWithHeaderWram(sSwitchMap_KantoSeviiAll2_Tilemap, sSwitchMapMenu->switchMapTilemap);
         sSwitchMapMenu->yOffset = 4;
         break;
     case 3:
     default:
         sSwitchMapMenu->yOffset = 3;
-        LZ77UnCompWram(sSwitchMap_KantoSeviiAll_Tilemap, sSwitchMapMenu->switchMapTilemap);
+        DecompressDataWithHeaderWram(sSwitchMap_KantoSeviiAll_Tilemap, sSwitchMapMenu->switchMapTilemap);
         break;
     }
-    LZ77UnCompWram(sSwitchMapMenu_Gfx, sSwitchMapMenu->switchMapTiles);
+    DecompressDataWithHeaderWram(sSwitchMapMenu_Gfx, sSwitchMapMenu->switchMapTiles);
     sSwitchMapMenu->mainState = 0;
     sSwitchMapMenu->currentSelection = whichMap;
     sSwitchMapMenu->exitTask = taskFunc;
@@ -1847,10 +1834,10 @@ static bool8 CreateSwitchMapCursor(void)
     switch (sSwitchMapMenu->cursorLoadState)
     {
     case 0:
-        LZ77UnCompWram(sSwitchMapCursorLeft_Gfx, sSwitchMapMenu->cursorSubsprite[0].tiles);
+        DecompressDataWithHeaderWram(sSwitchMapCursorLeft_Gfx, sSwitchMapMenu->cursorSubsprite[0].tiles);
         break;
     case 1:
-        LZ77UnCompWram(sSwitchMapCursorRight_Gfx, sSwitchMapMenu->cursorSubsprite[1].tiles);
+        DecompressDataWithHeaderWram(sSwitchMapCursorRight_Gfx, sSwitchMapMenu->cursorSubsprite[1].tiles);
         break;
     case 2:
         CreateSwitchMapCursorSubsprite(0, 2, 2);
@@ -1963,10 +1950,10 @@ static bool8 LoadMapPreviewGfx(void)
     switch (sDungeonMapPreview->loadState)
     {
     case 0:
-        LZ77UnCompWram(sDungeonMapPreview->mapPreviewInfo->tilesptr, sDungeonMapPreview->tiles);
+        DecompressDataWithHeaderWram(sDungeonMapPreview->mapPreviewInfo->tilesptr, sDungeonMapPreview->tiles);
         break;
     case 1:
-        LZ77UnCompWram(sDungeonMapPreview->mapPreviewInfo->tilemapptr, sDungeonMapPreview->tilemap);
+        DecompressDataWithHeaderWram(sDungeonMapPreview->mapPreviewInfo->tilemapptr, sDungeonMapPreview->tilemap);
         break;
     case 2:
         LoadBgTiles(2, sDungeonMapPreview->tiles, sizeof(sDungeonMapPreview->tiles), 0);
@@ -2254,34 +2241,34 @@ static bool8 LoadMapEdgeGfx(void)
     switch (sMapOpenCloseAnim->loadGfxState)
     {
     case 0:
-        LZ77UnCompWram(sMapEdge_TopLeft, sMapOpenCloseAnim->mapEdges[MAPEDGE_TOP_LEFT]->tiles);
+        DecompressDataWithHeaderWram(sMapEdge_TopLeft, sMapOpenCloseAnim->mapEdges[MAPEDGE_TOP_LEFT]->tiles);
         CreateMapEdgeSprite(MAPEDGE_TOP_LEFT, 4, 4);
         break;
     case 1:
-        LZ77UnCompWram(sMapEdge_MidLeft, sMapOpenCloseAnim->mapEdges[MAPEDGE_MID_LEFT]->tiles);
+        DecompressDataWithHeaderWram(sMapEdge_MidLeft, sMapOpenCloseAnim->mapEdges[MAPEDGE_MID_LEFT]->tiles);
         CreateMapEdgeSprite(MAPEDGE_MID_LEFT, 5, 5);
         break;
     case 2:
-        LZ77UnCompWram(sMapEdge_BottomLeft, sMapOpenCloseAnim->mapEdges[MAPEDGE_BOT_LEFT]->tiles);
+        DecompressDataWithHeaderWram(sMapEdge_BottomLeft, sMapOpenCloseAnim->mapEdges[MAPEDGE_BOT_LEFT]->tiles);
         CreateMapEdgeSprite(MAPEDGE_BOT_LEFT, 6, 6);
         break;
     case 3:
-        LZ77UnCompWram(sMapEdge_TopRight, sMapOpenCloseAnim->mapEdges[MAPEDGE_TOP_RIGHT]->tiles);
+        DecompressDataWithHeaderWram(sMapEdge_TopRight, sMapOpenCloseAnim->mapEdges[MAPEDGE_TOP_RIGHT]->tiles);
         CreateMapEdgeSprite(MAPEDGE_TOP_RIGHT, 7, 7);
         break;
     case 4:
-        LZ77UnCompWram(sMapEdge_MidRight, sMapOpenCloseAnim->mapEdges[MAPEDGE_MID_RIGHT]->tiles);
+        DecompressDataWithHeaderWram(sMapEdge_MidRight, sMapOpenCloseAnim->mapEdges[MAPEDGE_MID_RIGHT]->tiles);
         CreateMapEdgeSprite(MAPEDGE_MID_RIGHT, 8, 8);
         break;
     case 5:
-        LZ77UnCompWram(sMapEdge_BottomRight, sMapOpenCloseAnim->mapEdges[MAPEDGE_BOT_RIGHT]->tiles);
+        DecompressDataWithHeaderWram(sMapEdge_BottomRight, sMapOpenCloseAnim->mapEdges[MAPEDGE_BOT_RIGHT]->tiles);
         CreateMapEdgeSprite(MAPEDGE_BOT_RIGHT, 9, 9);
         break;
     case 6:
-        LZ77UnCompWram(sMapEdge_Gfx, sMapOpenCloseAnim->tiles);
+        DecompressDataWithHeaderWram(sMapEdge_Gfx, sMapOpenCloseAnim->tiles);
         break;
     case 7:
-        LZ77UnCompWram(sMapEdge_Tilemap, sMapOpenCloseAnim->tilemap);
+        DecompressDataWithHeaderWram(sMapEdge_Tilemap, sMapOpenCloseAnim->tilemap);
         break;
     case 8:
         LoadBgTiles(1, sMapOpenCloseAnim->tiles, BG_SCREEN_SIZE, 0);
@@ -2689,7 +2676,7 @@ static void SpriteCB_MapCursor(struct Sprite *sprite)
 static void CreateMapCursor(u16 tileTag, u16 palTag)
 {
     sMapCursor = AllocZeroed(sizeof(struct MapCursor));
-    LZ77UnCompWram(sMapCursor_Gfx, sMapCursor->tiles);
+    DecompressDataWithHeaderWram(sMapCursor_Gfx, sMapCursor->tiles);
     sMapCursor->tileTag = tileTag;
     sMapCursor->palTag = palTag;
     GetPlayerPositionOnRegionMap_HandleOverrides();
@@ -2808,7 +2795,7 @@ static u8 HandleRegionMapInput(void)
     }
     else if (!JOY_NEW(B_BUTTON))
     {
-        if (JOY_REPT(START_BUTTON))
+        if (JOY_REPEAT(START_BUTTON))
         {
             SnapToIconOrButton();
             sMapCursor->selectedMapsec = GetSelectedMapSection(GetSelectedRegionMap(), LAYER_MAP, sMapCursor->y, sMapCursor->x);
@@ -2929,7 +2916,7 @@ static u16 GetMapsecUnderCursor(void)
         return MAPSEC_NONE;
 
     mapsec = GetSelectedMapSection(GetSelectedRegionMap(), LAYER_MAP, sMapCursor->y, sMapCursor->x);
-    if ((mapsec == MAPSEC_NAVEL_ROCK || mapsec == MAPSEC_BIRTH_ISLAND) && !FlagGet(FLAG_WORLD_MAP_NAVEL_ROCK_EXTERIOR))
+    if ((mapsec == MAPSEC_NAVEL_ROCK_FRLG || mapsec == MAPSEC_BIRTH_ISLAND_FRLG) && !FlagGet(FLAG_WORLD_MAP_NAVEL_ROCK_EXTERIOR))
         mapsec = MAPSEC_NONE;
     return mapsec;
 }
@@ -3042,7 +3029,7 @@ static u8 GetDungeonMapsecType(u8 mapsec)
         return FlagGet(FLAG_WORLD_MAP_CERULEAN_CAVE_1F) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
     case MAPSEC_POWER_PLANT:
         return FlagGet(FLAG_WORLD_MAP_POWER_PLANT) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
-    case MAPSEC_NAVEL_ROCK:
+    case MAPSEC_NAVEL_ROCK_FRLG:
         return FlagGet(FLAG_WORLD_MAP_NAVEL_ROCK_EXTERIOR) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
     case MAPSEC_MT_EMBER:
         return FlagGet(FLAG_WORLD_MAP_MT_EMBER_EXTERIOR) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
@@ -3060,7 +3047,7 @@ static u8 GetDungeonMapsecType(u8 mapsec)
         return FlagGet(FLAG_WORLD_MAP_FIVE_ISLAND_LOST_CAVE_ENTRANCE) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
     case MAPSEC_PATTERN_BUSH:
         return FlagGet(FLAG_WORLD_MAP_SIX_ISLAND_PATTERN_BUSH) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
-    case MAPSEC_ALTERING_CAVE:
+    case MAPSEC_ALTERING_CAVE_FRLG:
         return FlagGet(FLAG_WORLD_MAP_SIX_ISLAND_ALTERING_CAVE) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
     case MAPSEC_TANOBY_CHAMBERS:
         return FlagGet(FLAG_WORLD_MAP_SEVEN_ISLAND_TANOBY_RUINS_MONEAN_CHAMBER) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
@@ -3068,7 +3055,7 @@ static u8 GetDungeonMapsecType(u8 mapsec)
         return FlagGet(FLAG_WORLD_MAP_THREE_ISLAND_DUNSPARCE_TUNNEL) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
     case MAPSEC_TANOBY_KEY:
         return FlagGet(FLAG_WORLD_MAP_SEVEN_ISLAND_SEVAULT_CANYON_TANOBY_KEY) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
-    case MAPSEC_BIRTH_ISLAND:
+    case MAPSEC_BIRTH_ISLAND_FRLG:
         return FlagGet(FLAG_WORLD_MAP_BIRTH_ISLAND_EXTERIOR) ? MAPSECTYPE_VISITED : MAPSECTYPE_NOT_VISITED;
     default:
         return MAPSECTYPE_ROUTE;
@@ -3155,20 +3142,20 @@ static void GetPlayerPositionOnRegionMap(void)
     }
 
     sMapCursor->selectedMapsec -= KANTO_MAPSEC_START;
-    divisor = width / sMapSectionDimensions[sMapCursor->selectedMapsec][0];
+    divisor = width / gRegionMapEntries[sMapCursor->selectedMapsec].width;
     if (divisor == 0)
         divisor = 1;
     x /= divisor;
-    if (x >= sMapSectionDimensions[sMapCursor->selectedMapsec][0])
-        x = sMapSectionDimensions[sMapCursor->selectedMapsec][0] - 1;
-    divisor = height / sMapSectionDimensions[sMapCursor->selectedMapsec][1];
+    if (x >= gRegionMapEntries[sMapCursor->selectedMapsec].width)
+        x = gRegionMapEntries[sMapCursor->selectedMapsec].width - 1;
+    divisor = height / gRegionMapEntries[sMapCursor->selectedMapsec].height;
     if (divisor == 0)
         divisor = 1;
     y /= divisor;
-    if (y >= sMapSectionDimensions[sMapCursor->selectedMapsec][1])
-        y = sMapSectionDimensions[sMapCursor->selectedMapsec][1] - 1;
-    sMapCursor->x = x + sMapSectionTopLeftCorners[sMapCursor->selectedMapsec][0];
-    sMapCursor->y = y + sMapSectionTopLeftCorners[sMapCursor->selectedMapsec][1];
+    if (y >= gRegionMapEntries[sMapCursor->selectedMapsec].height)
+        y = gRegionMapEntries[sMapCursor->selectedMapsec].height - 1;
+    sMapCursor->x = x + gRegionMapEntries[sMapCursor->selectedMapsec].x;
+    sMapCursor->y = y + gRegionMapEntries[sMapCursor->selectedMapsec].y;
 }
 
 static void GetPlayerPositionOnRegionMap_HandleOverrides(void)
@@ -3225,11 +3212,11 @@ static void GetPlayerPositionOnRegionMap_HandleOverrides(void)
             sMapCursor->y = 6; // optimized out but required to match
         }
         break;
-    case MAPSEC_BIRTH_ISLAND:
+    case MAPSEC_BIRTH_ISLAND_FRLG:
         sMapCursor->x = 18;
         sMapCursor->y = 13;
         break;
-    case MAPSEC_NAVEL_ROCK:
+    case MAPSEC_NAVEL_ROCK_FRLG:
         sMapCursor->x = 10;
         sMapCursor->y = 8;
         break;
@@ -3372,9 +3359,9 @@ static void CreatePlayerIcon(u16 tileTag, u16 palTag)
 {
     sPlayerIcon = AllocZeroed(sizeof(struct PlayerIcon));
     if (gSaveBlock2Ptr->playerGender == FEMALE)
-        LZ77UnCompWram(sPlayerIcon_Leaf, sPlayerIcon->tiles);
+        DecompressDataWithHeaderWram(sPlayerIcon_Leaf, sPlayerIcon->tiles);
     else
-        LZ77UnCompWram(sPlayerIcon_Red, sPlayerIcon->tiles);
+        DecompressDataWithHeaderWram(sPlayerIcon_Red, sPlayerIcon->tiles);
     sPlayerIcon->tileTag = tileTag;
     sPlayerIcon->palTag = palTag;
     sPlayerIcon->x = GetMapCursorX();
@@ -3445,8 +3432,8 @@ static void InitMapIcons(u8 whichMap, u8 taskId, TaskFunc taskFunc)
     sMapIcons = AllocZeroed(sizeof(struct MapIcons));
     sMapIcons->exitTask = taskFunc;
     sMapIcons->region = whichMap;
-    LZ77UnCompWram(sDungeonIcon, sMapIcons->dungeonIconTiles);
-    LZ77UnCompWram(sFlyIcon, sMapIcons->flyIconTiles);
+    DecompressDataWithHeaderWram(sDungeonIcon, sMapIcons->dungeonIconTiles);
+    DecompressDataWithHeaderWram(sFlyIcon, sMapIcons->flyIconTiles);
     gTasks[taskId].func = LoadMapIcons;
 }
 
@@ -3806,9 +3793,9 @@ u8 *GetMapName(u8 *dst0, u16 mapsec, u16 fill)
     if ((idx = mapsec - KANTO_MAPSEC_START) < MAPSEC_NONE - KANTO_MAPSEC_START)
     {
         if (IsCeladonDeptStoreMapsec(mapsec) == TRUE)
-            dst = StringCopy(dst0, sMapsecName_CELADON_DEPT_);
+            dst = StringCopy(dst0, sMapName_CELADON_DEPT_);
         else
-            dst = StringCopy(dst0, sMapNames[idx]);
+            dst = StringCopy(dst0, gRegionMapEntries[idx].name);
     }
     else
     {

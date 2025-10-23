@@ -3,6 +3,8 @@
 #include "bike.h"
 #include "coord_event_weather.h"
 #include "daycare.h"
+#include "debug.h"
+#include "dexnav.h"
 #include "event_data.h"
 #include "event_object_movement.h"
 #include "event_scripts.h"
@@ -14,7 +16,6 @@
 #include "field_specials.h"
 #include "item_menu.h"
 #include "link.h"
-#include "wonder_news.h"
 #include "metatile_behavior.h"
 #include "overworld.h"
 #include "renewable_hidden_items.h"
@@ -25,6 +26,7 @@
 #include "trainer_see.h"
 #include "vs_seeker.h"
 #include "wild_encounter.h"
+#include "wonder_news.h"
 #include "constants/songs.h"
 #include "constants/event_bg.h"
 #include "constants/event_objects.h"
@@ -41,7 +43,6 @@
 static void QuestLogOverrideJoyVars(struct FieldInput *input, u16 *newKeys, u16 *heldKeys);
 static void Task_QuestLogPlayback_OpenStartMenu(u8 taskId);
 static void GetPlayerPosition(struct MapPosition * position);
-static void GetInFrontOfPlayerPosition(struct MapPosition * position);
 static u16 GetPlayerCurMetatileBehavior(void);
 static bool8 TryStartInteractionScript(struct MapPosition * position, u16 metatileBehavior, u8 playerDirection);
 static const u8 *GetInteractionScript(struct MapPosition * position, u8 metatileBehavior, u8 playerDirection);
@@ -55,7 +56,6 @@ static bool8 TryStartCoordEventScript(struct MapPosition * position);
 static bool8 TryStartMiscWalkingScripts(u16 metatileBehavior);
 static bool8 TryStartStepCountScript(u16 metatileBehavior);
 static void UpdateHappinessStepCounter(void);
-static bool8 UpdatePoisonStepCounter(void);
 static bool8 CheckStandardWildEncounter(u32 metatileAttributes);
 static bool8 TrySetUpWalkIntoSignpostScript(struct MapPosition * position, u16 metatileBehavior, u8 playerDirection);
 static void SetUpWalkIntoSignScript(const u8 *script, u8 playerDirection);
@@ -70,6 +70,10 @@ static s8 GetWarpEventAtMapPosition(struct MapHeader * mapHeader, struct MapPosi
 static bool8 TryDoorWarp(struct MapPosition * position, u16 metatileBehavior, u8 playerDirection);
 static s8 GetWarpEventAtPosition(struct MapHeader * mapHeader, u16 x, u16 y, u8 z);
 static const u8 *GetCoordEventScriptAtPosition(struct MapHeader * mapHeader, u16 x, u16 y, u8 z);
+static void UpdateFollowerStepCounter(void);
+#if OW_POISON_DAMAGE < GEN_5
+static bool8 UpdatePoisonStepCounter(void);
+#endif // OW_POISON_DAMAGE
 
 COMMON_DATA struct FieldInput gFieldInputRecord = {0};
 
@@ -117,7 +121,7 @@ void FieldGetPlayerInput(struct FieldInput *input, u16 newKeys, u16 heldKeys)
                         input->pressedAButton = TRUE;
                     if (newKeys & B_BUTTON)
                         input->pressedBButton = TRUE;
-                    if (newKeys & R_BUTTON)
+                    if (newKeys & R_BUTTON && !FlagGet(DN_FLAG_SEARCHING))
                         input->pressedRButton = TRUE;
                 }
             }
@@ -152,7 +156,17 @@ void FieldGetPlayerInput(struct FieldInput *input, u16 newKeys, u16 heldKeys)
             input->dpadDirection = DIR_WEST;
         else if (heldKeys & DPAD_RIGHT)
             input->dpadDirection = DIR_EAST;
+
+        if(DEBUG_OVERWORLD_MENU && !DEBUG_OVERWORLD_IN_MENU)
+        {
+            if ((heldKeys & DEBUG_OVERWORLD_HELD_KEYS) && input->DEBUG_OVERWORLD_TRIGGER_EVENT)
+            {
+                input->input_field_1_2 = TRUE;
+                input->DEBUG_OVERWORLD_TRIGGER_EVENT = FALSE;
+            }
+        }
     }
+
 }
 
 static void QuestLogOverrideJoyVars(struct FieldInput *input, u16 *newKeys, u16 *heldKeys)
@@ -289,9 +303,24 @@ int ProcessPlayerFieldInput(struct FieldInput *input)
         ShowStartMenu();
         return TRUE;
     }
+    
+    if (input->tookStep && TryFindHiddenPokemon())
+        return TRUE;
+
     if (input->pressedSelectButton && UseRegisteredKeyItemOnField() == TRUE)
     {
         gFieldInputRecord.pressedSelectButton = TRUE;
+        return TRUE;
+    }
+    
+    if (input->pressedRButton && TryStartDexNavSearch())
+        return TRUE;
+
+    if(input->input_field_1_2 && DEBUG_OVERWORLD_MENU && !DEBUG_OVERWORLD_IN_MENU)
+    {
+        PlaySE(SE_WIN_OPEN);
+        FreezeObjectEvents();
+        Debug_ShowMainMenu();
         return TRUE;
     }
 
@@ -348,7 +377,7 @@ static void GetPlayerPosition(struct MapPosition *position)
     position->elevation = PlayerGetElevation();
 }
 
-static void GetInFrontOfPlayerPosition(struct MapPosition *position)
+void GetInFrontOfPlayerPosition(struct MapPosition *position)
 {
     s16 x, y;
 
@@ -376,7 +405,9 @@ static bool8 TryStartInteractionScript(struct MapPosition *position, u16 metatil
 
     // Don't play interaction sound for certain scripts.
     if (script != PalletTown_PlayersHouse_2F_EventScript_PC
-        && script != EventScript_PC)
+        && script != EventScript_PC
+        && script != EventScript_UseSurf
+        && script != EventScript_CurrentTooFast)
         PlaySE(SE_SELECT);
 
     ScriptContext_SetupScript(script);
@@ -433,8 +464,39 @@ static const u8 *GetInteractedObjectEventScript(struct MapPosition *position, u8
 {
     u8 objectEventId;
     const u8 *script;
+    s16 currX = gObjectEvents[gPlayerAvatar.objectEventId].currentCoords.x;
+    s16 currY = gObjectEvents[gPlayerAvatar.objectEventId].currentCoords.y;
+    u8 currBehavior = MapGridGetMetatileBehaviorAt(currX, currY);
 
-    objectEventId = GetObjectEventIdByPosition(position->x, position->y, position->elevation);
+    switch (direction)
+    {
+    case DIR_EAST:
+        if (MetatileBehavior_IsSidewaysStairsLeftSideAny(metatileBehavior))
+            // sideways stairs left-side to your right -> check northeast
+            objectEventId = GetObjectEventIdByPosition(currX + 1, currY - 1, position->elevation);
+        else if (MetatileBehavior_IsSidewaysStairsRightSideAny(currBehavior))
+            // on top of right-side stairs -> check southeast
+            objectEventId = GetObjectEventIdByPosition(currX + 1, currY + 1, position->elevation);
+        else
+            // check in front of player
+            objectEventId = GetObjectEventIdByPosition(position->x, position->y, position->elevation);
+        break;
+    case DIR_WEST:
+        if (MetatileBehavior_IsSidewaysStairsRightSideAny(metatileBehavior))
+            // facing sideways stairs right side -> check northwest
+            objectEventId = GetObjectEventIdByPosition(currX - 1, currY - 1, position->elevation);
+        else if (MetatileBehavior_IsSidewaysStairsLeftSideAny(currBehavior))
+            // on top of left-side stairs -> check southwest
+            objectEventId = GetObjectEventIdByPosition(currX - 1, currY + 1, position->elevation);
+        else
+            // check in front of player
+            objectEventId = GetObjectEventIdByPosition(position->x, position->y, position->elevation);
+        break;
+    default:
+        objectEventId = GetObjectEventIdByPosition(position->x, position->y, position->elevation);
+        break;
+    }
+
     if (objectEventId == OBJECT_EVENTS_COUNT || gObjectEvents[objectEventId].localId == LOCALID_PLAYER)
     {
         if (MetatileBehavior_IsCounter(metatileBehavior) != TRUE)
@@ -600,14 +662,14 @@ static const u8 *GetInteractedMetatileScript(struct MapPosition *position, u8 me
 
 static const u8 *GetInteractedWaterScript(struct MapPosition *unused1, u8 metatileBehavior, u8 direction)
 {
-    if (MetatileBehavior_IsFastWater(metatileBehavior) == TRUE && PartyHasMonWithSurf() == TRUE)
+    if (MetatileBehavior_IsFastWater(metatileBehavior) == TRUE && !TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING))
         return EventScript_CurrentTooFast;
-    if (FlagGet(FLAG_BADGE05_GET) == TRUE && PartyHasMonWithSurf() == TRUE && IsPlayerFacingSurfableFishableWater() == TRUE)
+    if (!TestPlayerAvatarFlags(PLAYER_AVATAR_FLAG_SURFING) && IsPlayerFacingSurfableFishableWater() == TRUE)
         return EventScript_UseSurf;
 
     if (MetatileBehavior_IsWaterfall(metatileBehavior) == TRUE)
     {
-        if (FlagGet(FLAG_BADGE07_GET) == TRUE && IsPlayerSurfingNorth() == TRUE)
+        if (IsPlayerSurfingNorth() == TRUE)
             return EventScript_Waterfall;
         else
             return EventScript_CantUseWaterfall;
@@ -654,6 +716,7 @@ static bool8 TryStartStepCountScript(u16 metatileBehavior)
         return FALSE;
 
     UpdateHappinessStepCounter();
+    UpdateFollowerStepCounter();
 
     if (!(gPlayerAvatar.flags & PLAYER_AVATAR_FLAG_FORCED) && !MetatileBehavior_IsForcedMovementTile(metatileBehavior))
     {
@@ -662,12 +725,14 @@ static bool8 TryStartStepCountScript(u16 metatileBehavior)
             ScriptContext_SetupScript(EventScript_VsSeekerChargingDone);
             return TRUE;
         }
-        else if (UpdatePoisonStepCounter() == TRUE)
+    #if OW_POISON_DAMAGE < GEN_5
+        if (UpdatePoisonStepCounter() == TRUE)
         {
             ScriptContext_SetupScript(EventScript_FieldPoison);
             return TRUE;
         }
-        else if (ShouldEggHatch())
+    #endif
+        if (ShouldEggHatch())
         {
             IncrementGameStat(GAME_STAT_HATCHED_EGGS);
             ScriptContext_SetupScript(EventScript_EggHatch);
@@ -677,11 +742,6 @@ static bool8 TryStartStepCountScript(u16 metatileBehavior)
     if (SafariZoneTakeStep() == TRUE)
         return TRUE;
     return FALSE;
-}
-
-static void Unref_ClearHappinessStepCounter(void)
-{
-    VarSet(VAR_HAPPINESS_STEP_COUNTER, 0);
 }
 
 static void UpdateHappinessStepCounter(void)
@@ -702,11 +762,18 @@ static void UpdateHappinessStepCounter(void)
     }
 }
 
+static void UpdateFollowerStepCounter(void)
+{
+    if (gPlayerPartyCount > 0 && gFollowerSteps < (u16)-1)
+        gFollowerSteps++;
+}
+
 void ClearPoisonStepCounter(void)
 {
     VarSet(VAR_POISON_STEP_COUNTER, 0);
 }
 
+#if OW_POISON_DAMAGE < GEN_5
 static bool8 UpdatePoisonStepCounter(void)
 {
     u16 *ptr;
@@ -731,6 +798,7 @@ static bool8 UpdatePoisonStepCounter(void)
     }
     return FALSE;
 }
+#endif // OW_POISON_DAMAGE
 
 void RestartWildEncounterImmunitySteps(void)
 {
@@ -739,6 +807,9 @@ void RestartWildEncounterImmunitySteps(void)
 
 static bool8 CheckStandardWildEncounter(u32 metatileAttributes)
 {
+    if (FlagGet(OW_FLAG_NO_ENCOUNTER))
+        return FALSE;
+
     return TryStandardWildEncounter(metatileAttributes);
 }
 
@@ -1098,6 +1169,16 @@ const u8 *GetCoordEventScriptAtMapPosition(struct MapPosition *position)
     return GetCoordEventScriptAtPosition(&gMapHeader, position->x - MAP_OFFSET, position->y - MAP_OFFSET, position->elevation);
 }
 
+const u8 *GetObjectEventScriptPointerPlayerFacing(void)
+{
+    u8 direction;
+    struct MapPosition position;
+
+    direction = GetPlayerMovementDirection();
+    GetInFrontOfPlayerPosition(&position);
+    return GetInteractedObjectEventScript(&position, MapGridGetMetatileBehaviorAt(position.x, position.y), direction);
+}
+
 static const struct BgEvent *GetBackgroundEventAtPosition(struct MapHeader *mapHeader, u16 x, u16 y, u8 elevation)
 {
     u8 i;
@@ -1138,36 +1219,6 @@ bool8 dive_warp(struct MapPosition *position, u16 metatileBehavior)
         }
     }
     return FALSE;
-}
-
-static u8 TrySetDiveWarp(void)
-{
-    s16 x, y;
-    u8 metatileBehavior;
-
-    PlayerGetDestCoords(&x, &y);
-    metatileBehavior = MapGridGetMetatileBehaviorAt(x, y);
-    if (gMapHeader.mapType == MAP_TYPE_UNDERWATER && !MetatileBehavior_IsUnableToEmerge(metatileBehavior))
-    {
-        if (SetDiveWarpEmerge(x - MAP_OFFSET, y - MAP_OFFSET) == TRUE)
-            return 1;
-    }
-    else if (MetatileBehavior_IsDiveable(metatileBehavior) == TRUE)
-    {
-        if (SetDiveWarpDive(x - MAP_OFFSET, y - MAP_OFFSET) == TRUE)
-            return 2;
-    }
-    return 0;
-}
-
-static const u8 *GetObjectEventScriptPointerPlayerFacing(void)
-{
-    u8 direction;
-    struct MapPosition position;
-
-    direction = GetPlayerMovementDirection();
-    GetInFrontOfPlayerPosition(&position);
-    return GetInteractedObjectEventScript(&position, MapGridGetMetatileBehaviorAt(position.x, position.y), direction);
 }
 
 int SetCableClubWarp(void)

@@ -4,7 +4,6 @@
 #include "scanline_effect.h"
 #include "text_window.h"
 #include "menu.h"
-#include "new_menu_helpers.h"
 #include "mystery_gift_menu.h"
 #include "title_screen.h"
 #include "list_menu.h"
@@ -392,7 +391,7 @@ bool32 HandleMysteryGiftOrEReaderSetup(s32 isEReader)
         SetBgTilemapBuffer(1, Alloc(BG_SCREEN_SIZE));
         SetBgTilemapBuffer(0, Alloc(BG_SCREEN_SIZE));
 
-        LoadUserWindowGfx2(0, 10, BG_PLTT_ID(14));
+        LoadUserWindowBorderGfx_(0, 10, BG_PLTT_ID(14));
         LoadStdWindowGfxOnBg(0,  1, BG_PLTT_ID(15));
         DecompressAndLoadBgGfxUsingHeap(3, sTextboxBorder_Gfx, 0x100, 0, 0);
         InitWindows(sMainWindows);
@@ -568,34 +567,6 @@ bool32 PrintMysteryGiftMenuMessage(u8 *textState, const u8 *str)
     return FALSE;
 }
 
-static void HideDownArrow(void)
-{
-    DrawDownArrow(1, DOWN_ARROW_X, DOWN_ARROW_Y, 1, FALSE, &sDownArrowCounterAndYCoordIdx[0], &sDownArrowCounterAndYCoordIdx[1]);
-}
-
-static void ShowDownArrow(void)
-{
-    DrawDownArrow(1, DOWN_ARROW_X, DOWN_ARROW_Y, 1, TRUE, &sDownArrowCounterAndYCoordIdx[0], &sDownArrowCounterAndYCoordIdx[1]);
-}
-
-// Unused
-static bool32 HideDownArrowAndWaitButton(u8 * textState)
-{
-    switch (*textState)
-    {
-    case 0:
-        HideDownArrow();
-        if (JOY_NEW(A_BUTTON | B_BUTTON))
-            (*textState)++;
-        break;
-    case 1:
-        ShowDownArrow();
-        *textState = 0;
-        return TRUE;
-    }
-    return FALSE;
-}
-
 static bool32 PrintStringAndWait2Seconds(u8 * counter, const u8 * str)
 {
     if (*counter == 0)
@@ -630,7 +601,7 @@ static u32 MysteryGift_HandleThreeOptionMenu(u8 * unused0, u16 * unused1, u8 whi
     width = 0;
     for (i = 0; i < listMenuTemplate.totalItems; i++)
     {
-        u32 curWidth = GetStringWidth(FONT_NORMAL, listMenuTemplate.items[i].label, listMenuTemplate.lettersSpacing);
+        u32 curWidth = GetStringWidth(FONT_NORMAL, listMenuTemplate.items[i].name, listMenuTemplate.lettersSpacing);
         if (curWidth > width)
             width = curWidth;
     }
@@ -674,7 +645,7 @@ s8 DoMysteryGiftYesNo(u8 * textState, u16 * windowId, bool8 yesNoBoxPlacement, c
             windowTemplate.tilemapTop = 9;
         else
             windowTemplate.tilemapTop = 15;
-        CreateYesNoMenu(&windowTemplate, FONT_NORMAL, 0, 2, 10, 14, 0);
+        CreateYesNoMenuAtPos(&windowTemplate, FONT_NORMAL, 0, 2, 10, 14, 0);
         (*textState)++;
         break;
     case 2:
@@ -705,7 +676,7 @@ s8 DoMysteryGiftYesNo(u8 * textState, u16 * windowId, bool8 yesNoBoxPlacement, c
 // Handle the "Receive/Send/Toss" menu that appears when selecting Wonder Card/News
 static s32 HandleMysteryGiftListMenu(u8 * textState, u16 * windowId, bool32 cannotToss, bool32 cannotSend)
 {
-    struct WindowTemplate windowTemplate;
+    struct WindowTemplate UNUSED windowTemplate;
     s32 input;
 
     switch (*textState)

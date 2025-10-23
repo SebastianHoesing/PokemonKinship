@@ -1,5 +1,7 @@
 #include "global.h"
 #include "gflib.h"
+#include "debug.h"
+#include "dexnav.h"
 #include "scanline_effect.h"
 #include "overworld.h"
 #include "link.h"
@@ -20,7 +22,6 @@
 #include "text_window.h"
 #include "field_fadetransition.h"
 #include "field_player_avatar.h"
-#include "new_menu_helpers.h"
 #include "event_object_movement.h"
 #include "event_object_lock.h"
 #include "script.h"
@@ -32,8 +33,10 @@
 #include "pokedex_screen.h"
 #include "trainer_card.h"
 #include "option_menu.h"
+#include "rtc.h"
 #include "save_menu_util.h"
 #include "help_system.h"
+#include "wild_encounter.h"
 #include "constants/songs.h"
 #include "constants/field_weather.h"
 
@@ -48,6 +51,8 @@ enum StartMenuOption
     STARTMENU_EXIT,
     STARTMENU_RETIRE,
     STARTMENU_PLAYER2,
+    STARTMENU_DEBUG,
+    STARTMENU_DEXNAV,
     MAX_STARTMENU_ITEMS
 };
 
@@ -65,6 +70,7 @@ static EWRAM_DATA u8 sNumStartMenuItems = 0;
 static EWRAM_DATA u8 sStartMenuOrder[MAX_STARTMENU_ITEMS] = {};
 static EWRAM_DATA s8 sDrawStartMenuState[2] = {};
 static EWRAM_DATA u8 sSafariZoneStatsWindowId = 0;
+static EWRAM_DATA u8 sTimeWindowId = 0;
 static ALIGNED(4) EWRAM_DATA u8 sSaveStatsWindowId = 0;
 
 static u8 (*sSaveDialogCB)(void);
@@ -75,6 +81,7 @@ static void SetUpStartMenu_Link(void);
 static void SetUpStartMenu_UnionRoom(void);
 static void SetUpStartMenu_SafariZone(void);
 static void SetUpStartMenu_NormalField(void);
+static void SetUpStartMenu_Debug(void);
 static bool8 StartCB_HandleInput(void);
 static void StartMenu_FadeScreenIfLeavingOverworld(void);
 static bool8 StartMenuPokedexSanityCheck(void);
@@ -87,6 +94,8 @@ static bool8 StartMenuOptionCallback(void);
 static bool8 StartMenuExitCallback(void);
 static bool8 StartMenuSafariZoneRetireCallback(void);
 static bool8 StartMenuLinkPlayerCallback(void);
+static bool8 StartMenuDebugCallback(void);
+static bool8 StartMenuDexNavCallback(void);
 static bool8 StartCB_Save1(void);
 static bool8 StartCB_Save2(void);
 static void StartMenu_PrepareForSave(void);
@@ -110,18 +119,42 @@ static void CB2_WhileSavingAfterLinkBattle(void);
 static void task50_after_link_battle_save(u8 taskId);
 static void PrintSaveStats(void);
 static void CloseSaveStatsWindow(void);
-static void CloseStartMenu(void);
+static void HideStartMenuDebug(void);
+
+static const u8 sText_MenuDebug[] = _("DEBUG");
 
 static const struct MenuAction sStartMenuActionTable[] = {
-    [STARTMENU_POKEDEX] = { gText_MenuPokedex, {.u8_void = StartMenuPokedexCallback} },
-    [STARTMENU_POKEMON] = { gText_MenuPokemon, {.u8_void = StartMenuPokemonCallback} },
-    [STARTMENU_BAG]     = { gText_MenuBag,     {.u8_void = StartMenuBagCallback} },
-    [STARTMENU_PLAYER]  = { gText_MenuPlayer,  {.u8_void = StartMenuPlayerCallback} },
-    [STARTMENU_SAVE]    = { gText_MenuSave,    {.u8_void = StartMenuSaveCallback} },
-    [STARTMENU_OPTION]  = { gText_MenuOption,  {.u8_void = StartMenuOptionCallback} },
-    [STARTMENU_EXIT]    = { gText_MenuExit,    {.u8_void = StartMenuExitCallback} },
-    [STARTMENU_RETIRE]  = { gText_MenuRetire,  {.u8_void = StartMenuSafariZoneRetireCallback} },
-    [STARTMENU_PLAYER2] = { gText_MenuPlayer,  {.u8_void = StartMenuLinkPlayerCallback} }
+    [STARTMENU_POKEDEX] = {gText_MenuPokedex, {.u8_void = StartMenuPokedexCallback}},
+    [STARTMENU_POKEMON] = {gText_MenuPokemon, {.u8_void = StartMenuPokemonCallback}},
+    [STARTMENU_BAG]     = {gText_MenuBag,     {.u8_void = StartMenuBagCallback}},
+    [STARTMENU_PLAYER]  = {gText_MenuPlayer,  {.u8_void = StartMenuPlayerCallback}},
+    [STARTMENU_SAVE]    = {gText_MenuSave,    {.u8_void = StartMenuSaveCallback}},
+    [STARTMENU_OPTION]  = {gText_MenuOption,  {.u8_void = StartMenuOptionCallback}},
+    [STARTMENU_EXIT]    = {gText_MenuExit,    {.u8_void = StartMenuExitCallback}},
+    [STARTMENU_RETIRE]  = {gText_MenuRetire,  {.u8_void = StartMenuSafariZoneRetireCallback}},
+    [STARTMENU_PLAYER2] = {gText_MenuPlayer,  {.u8_void = StartMenuLinkPlayerCallback}},
+    [STARTMENU_DEBUG]   = {sText_MenuDebug,   {.u8_void = StartMenuDebugCallback}},
+    [STARTMENU_DEXNAV]  = {gText_MenuDexNav,  {.u8_void = StartMenuDexNavCallback}},
+};
+
+static const struct WindowTemplate sTimeWindowTemplate = {
+    .bg = 0,
+    .tilemapLeft = 1,
+    .tilemapTop = 1,
+    .width = 10,
+    .height = 4,
+    .paletteNum = 15,
+    .baseBlock = 0x1A8
+};
+
+static const struct WindowTemplate sTimeSafariWindowTemplate = {
+    .bg = 0,
+    .tilemapLeft = 1,
+    .tilemapTop = 7,
+    .width = 10,
+    .height = 4,
+    .paletteNum = 15,
+    .baseBlock = 0x198
 };
 
 static const struct WindowTemplate sSafariZoneStatsWindowTemplate = {
@@ -143,7 +176,8 @@ static const u8 *const sStartMenuDescPointers[] = {
     gStartMenuDesc_Option,
     gStartMenuDesc_Exit,
     gStartMenuDesc_Retire,
-    gStartMenuDesc_Player
+    gStartMenuDesc_Player,
+    gStartMenuDesc_Debug,
 };
 
 static const struct BgTemplate sBGTemplates_AfterLinkSaveMessage[] = {
@@ -184,13 +218,6 @@ static ALIGNED(2) const u8 sTextColor_StatName[] = { 1, 2, 3 };
 static ALIGNED(2) const u8 sTextColor_StatValue[] = { 1, 4, 5 };
 static ALIGNED(2) const u8 sTextColor_LocationHeader[] = { 1, 6, 7 };
 
-// Unused
-static void SetHasPokedexAndPokemon(void)
-{
-    FlagSet(FLAG_SYS_POKEDEX_GET);
-    FlagSet(FLAG_SYS_POKEMON_GET);
-}
-
 static void SetUpStartMenu(void)
 {
     sNumStartMenuItems = 0;
@@ -200,6 +227,8 @@ static void SetUpStartMenu(void)
         SetUpStartMenu_UnionRoom();
     else if (GetSafariZoneFlag() == TRUE)
         SetUpStartMenu_SafariZone();
+    else if (DEBUG_OVERWORLD_MENU && DEBUG_OVERWORLD_IN_MENU)
+        SetUpStartMenu_Debug();
     else
         SetUpStartMenu_NormalField();
 }
@@ -209,10 +238,26 @@ static void AppendToStartMenuItems(u8 newEntry)
     AppendToList(sStartMenuOrder, &sNumStartMenuItems, newEntry);
 }
 
+static void SetUpStartMenu_Debug(void)
+{
+    AppendToStartMenuItems(STARTMENU_DEBUG);
+    if (FlagGet(FLAG_SYS_POKEDEX_GET) == TRUE)
+        AppendToStartMenuItems(STARTMENU_POKEDEX);
+    if (FlagGet(FLAG_SYS_POKEMON_GET) == TRUE)
+        AppendToStartMenuItems(STARTMENU_POKEMON);
+    AppendToStartMenuItems(STARTMENU_BAG);
+    AppendToStartMenuItems(STARTMENU_PLAYER);
+    AppendToStartMenuItems(STARTMENU_SAVE);
+    AppendToStartMenuItems(STARTMENU_OPTION);
+    AppendToStartMenuItems(STARTMENU_EXIT);
+}
+
 static void SetUpStartMenu_NormalField(void)
 {
     if (FlagGet(FLAG_SYS_POKEDEX_GET) == TRUE)
         AppendToStartMenuItems(STARTMENU_POKEDEX);
+    if (DN_FLAG_DEXNAV_GET != 0 && FlagGet(DN_FLAG_DEXNAV_GET))
+        AppendToStartMenuItems(STARTMENU_DEXNAV);
     if (FlagGet(FLAG_SYS_POKEMON_GET) == TRUE)
         AppendToStartMenuItems(STARTMENU_POKEMON);
     AppendToStartMenuItems(STARTMENU_BAG);
@@ -274,6 +319,76 @@ static void DestroySafariZoneStatsWindow(void)
     }
 }
 
+#define tCounter data[0]
+
+static void Task_UpdateTimeWindow(u8 taskId)
+{
+    if (gTasks[taskId].tCounter < 60)
+    {
+        gTasks[taskId].tCounter++;
+        return;
+    }
+
+    if (IsDma3ManagerBusyWithBgCopy())
+        return;
+
+    DrawStdWindowFrame(sTimeWindowId, FALSE);
+    ConvertIntToDecimalStringN(gStringVar1, GetCurrentHour(), STR_CONV_MODE_RIGHT_ALIGN, 3);
+    ConvertIntToDecimalStringN(gStringVar2, GetCurrentMinute(), STR_CONV_MODE_LEADING_ZEROS, 2);
+    StringExpandPlaceholders(gStringVar4, gText_MenuTime);
+    AddTextPrinterParameterized(sTimeWindowId, FONT_NORMAL, gStringVar4, 4, 1, 0xFF, NULL);
+
+    StringCopy(gStringVar1, GetSeasonName(GetSeason()));
+    ConvertIntToDecimalStringN(gStringVar2, GetSeasonDay(), STR_CONV_MODE_RIGHT_ALIGN, 2);
+    StringExpandPlaceholders(gStringVar4, gText_MenuDay);
+    AddTextPrinterParameterized(sTimeWindowId, FONT_NORMAL, gStringVar4, 4, 18, 0xFF, NULL);
+    
+    CopyWindowToVram(sTimeWindowId, COPYWIN_GFX);
+    gTasks[taskId].tCounter = 0;
+}
+
+static void DrawTimeWindow(void)
+{
+    if (GetSafariZoneFlag())
+        sTimeWindowId = AddWindow(&sTimeSafariWindowTemplate);
+    else
+        sTimeWindowId = AddWindow(&sTimeWindowTemplate);
+    
+    PutWindowTilemap(sTimeWindowId);
+    DrawStdWindowFrame(sTimeWindowId, FALSE);
+    ConvertIntToDecimalStringN(gStringVar1, GetCurrentHour(), STR_CONV_MODE_RIGHT_ALIGN, 3);
+    ConvertIntToDecimalStringN(gStringVar2, GetCurrentMinute(), STR_CONV_MODE_LEADING_ZEROS, 2);
+    StringExpandPlaceholders(gStringVar4, gText_MenuTime);
+    AddTextPrinterParameterized(sTimeWindowId, FONT_NORMAL, gStringVar4, 4, 1, 0xFF, NULL);
+
+    StringCopy(gStringVar1, GetSeasonName(GetSeason()));
+    ConvertIntToDecimalStringN(gStringVar2, GetSeasonDay(), STR_CONV_MODE_RIGHT_ALIGN, 2);
+    StringExpandPlaceholders(gStringVar4, gText_MenuDay);
+    AddTextPrinterParameterized(sTimeWindowId, FONT_NORMAL, gStringVar4, 4, 18, 0xFF, NULL);
+
+    CopyWindowToVram(sTimeWindowId, COPYWIN_GFX);
+
+    u8 taskId = CreateTask(Task_UpdateTimeWindow, 0);
+    gTasks[taskId].tCounter = 0;
+}
+
+#undef tCounter
+
+static void DestroyTimeWindow(void)
+{
+    u8 taskId = FindTaskIdByFunc(Task_UpdateTimeWindow);
+    if (taskId != TASK_NONE)
+        DestroyTask(taskId);
+    
+    if (sTimeWindowId == WINDOW_NONE)
+        return;
+
+    ClearStdWindowAndFrameToTransparent(sTimeWindowId, FALSE);
+    CopyWindowToVram(sTimeWindowId, COPYWIN_FULL);
+    RemoveWindow(sTimeWindowId);
+    sTimeWindowId = WINDOW_NONE;
+}
+
 static s8 PrintStartMenuItems(s8 *cursor_p, u8 nitems)
 {
     s16 i = *cursor_p;
@@ -281,7 +396,7 @@ static s8 PrintStartMenuItems(s8 *cursor_p, u8 nitems)
     {
         if (sStartMenuOrder[i] == STARTMENU_PLAYER || sStartMenuOrder[i] == STARTMENU_PLAYER2)
         {
-            Menu_PrintFormatIntlPlayerName(GetStartMenuWindowId(), sStartMenuActionTable[sStartMenuOrder[i]].text, 8, i * 15);
+            PrintPlayerNameOnWindow(GetStartMenuWindowId(), sStartMenuActionTable[sStartMenuOrder[i]].text, 8, i * 15);
         }
         else
         {
@@ -311,8 +426,8 @@ static s8 DoDrawStartMenu(void)
         sDrawStartMenuState[0]++;
         break;
     case 2:
-        LoadStdWindowFrameGfx();
-        DrawStdWindowFrame(CreateStartMenuWindow(sNumStartMenuItems), FALSE);
+        LoadMessageBoxAndBorderGfx();
+        DrawStdWindowFrame(AddStartMenuWindow(sNumStartMenuItems), FALSE);
         sDrawStartMenuState[0]++;
         break;
     case 3:
@@ -321,15 +436,17 @@ static s8 DoDrawStartMenu(void)
         sDrawStartMenuState[0]++;
         break;
     case 4:
+        DrawTimeWindow();
+        sDrawStartMenuState[0]++;
+        break;
+    case 5:
         if (PrintStartMenuItems(&sDrawStartMenuState[1], 2) == TRUE)
             sDrawStartMenuState[0]++;
         break;
-    case 5:
-        sStartMenuCursorPos = Menu_InitCursor(GetStartMenuWindowId(), FONT_NORMAL, 0, 0, 15, sNumStartMenuItems, sStartMenuCursorPos);
-        if (!MenuHelpers_IsLinkActive() && InUnionRoom() != TRUE && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_HELP)
-        {
+    case 6:
+        sStartMenuCursorPos = InitMenuNormal(GetStartMenuWindowId(), FONT_NORMAL, 0, 0, 15, sNumStartMenuItems, sStartMenuCursorPos);
+        if (DEBUG_OVERWORLD_MENU != TRUE && !MenuHelpers_IsLinkActive() && InUnionRoom() != TRUE && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_HELP)
             DrawHelpMessageWindowWithText(sStartMenuDescPointers[sStartMenuOrder[sStartMenuCursorPos]]);
-        }
         CopyWindowToVram(GetStartMenuWindowId(), COPYWIN_MAP);
         return TRUE;
     }
@@ -397,7 +514,7 @@ void ShowStartMenu(void)
     if (!IsUpdateLinkStateCBActive())
     {
         FreezeObjectEvents();
-        HandleEnforcedLookDirectionOnPlayerStopMoving();
+        PlayerFreeze();
         StopPlayerAvatar();
     }
     OpenStartMenuWithFollowupFunc(Task_StartMenuHandleInput);
@@ -410,16 +527,14 @@ static bool8 StartCB_HandleInput(void)
     {
         PlaySE(SE_SELECT);
         sStartMenuCursorPos = Menu_MoveCursor(-1);
-        if (!MenuHelpers_IsLinkActive() && InUnionRoom() != TRUE && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_HELP)
-        {
+        if (DEBUG_OVERWORLD_MENU != TRUE && !MenuHelpers_IsLinkActive() && InUnionRoom() != TRUE && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_HELP)
             PrintTextOnHelpMessageWindow(sStartMenuDescPointers[sStartMenuOrder[sStartMenuCursorPos]], 2);
-        }
     }
     if (JOY_NEW(DPAD_DOWN))
     {
         PlaySE(SE_SELECT);
         sStartMenuCursorPos = Menu_MoveCursor(+1);
-        if (!MenuHelpers_IsLinkActive() && InUnionRoom() != TRUE && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_HELP)
+        if (DEBUG_OVERWORLD_MENU != TRUE && !MenuHelpers_IsLinkActive() && InUnionRoom() != TRUE && gSaveBlock2Ptr->optionsButtonMode == OPTIONS_BUTTON_MODE_HELP)
         {
             PrintTextOnHelpMessageWindow(sStartMenuDescPointers[sStartMenuOrder[sStartMenuCursorPos]], 2);
         }
@@ -429,6 +544,9 @@ static bool8 StartCB_HandleInput(void)
         PlaySE(SE_SELECT);
         if (!StartMenuPokedexSanityCheck())
             return FALSE;
+        if (sStartMenuOrder[sStartMenuCursorPos] == STARTMENU_DEXNAV
+            && MapHasNoEncounterData())
+            return FALSE;
         sStartMenuCallback = sStartMenuActionTable[sStartMenuOrder[sStartMenuCursorPos]].func.u8_void;
         StartMenu_FadeScreenIfLeavingOverworld();
         return FALSE;
@@ -436,7 +554,9 @@ static bool8 StartCB_HandleInput(void)
     if (JOY_NEW(B_BUTTON | START_BUTTON))
     {
         DestroySafariZoneStatsWindow();
-        DestroyHelpMessageWindow_();
+        DestroyTimeWindow();
+        if (DEBUG_OVERWORLD_MENU != TRUE)
+            DestroyHelpMessageWindow_();
         CloseStartMenu();
         return TRUE;
     }
@@ -447,6 +567,7 @@ static void StartMenu_FadeScreenIfLeavingOverworld(void)
 {
     if (sStartMenuCallback != StartMenuSaveCallback
      && sStartMenuCallback != StartMenuExitCallback
+     && sStartMenuCallback != StartMenuDebugCallback
      && sStartMenuCallback != StartMenuSafariZoneRetireCallback)
     {
         StopPokemonLeagueLightingEffectTask();
@@ -456,7 +577,7 @@ static void StartMenu_FadeScreenIfLeavingOverworld(void)
 
 static bool8 StartMenuPokedexSanityCheck(void)
 {
-    if (sStartMenuActionTable[sStartMenuOrder[sStartMenuCursorPos]].func.u8_void == StartMenuPokedexCallback && GetNationalPokedexCount(0) == 0)
+    if (sStartMenuActionTable[sStartMenuOrder[sStartMenuCursorPos]].func.u8_void == StartMenuPokedexCallback && GetNationalPokedexCount(FLAG_GET_SEEN) == 0)
         return FALSE;
     return TRUE;
 }
@@ -468,6 +589,7 @@ static bool8 StartMenuPokedexCallback(void)
         IncrementGameStat(GAME_STAT_CHECKED_POKEDEX);
         PlayRainStoppingSoundEffect();
         DestroySafariZoneStatsWindow();
+        DestroyTimeWindow();
         CleanupOverworldWindowsAndTilemaps();
         SetMainCallback2(CB2_OpenPokedexFromStartMenu);
         return TRUE;
@@ -481,6 +603,7 @@ static bool8 StartMenuPokemonCallback(void)
     {
         PlayRainStoppingSoundEffect();
         DestroySafariZoneStatsWindow();
+        DestroyTimeWindow();
         CleanupOverworldWindowsAndTilemaps();
         SetMainCallback2(CB2_PartyMenuFromStartMenu);
         return TRUE;
@@ -494,6 +617,7 @@ static bool8 StartMenuBagCallback(void)
     {
         PlayRainStoppingSoundEffect();
         DestroySafariZoneStatsWindow();
+        DestroyTimeWindow();
         CleanupOverworldWindowsAndTilemaps();
         SetMainCallback2(CB2_BagMenuFromStartMenu);
         return TRUE;
@@ -507,6 +631,7 @@ static bool8 StartMenuPlayerCallback(void)
     {
         PlayRainStoppingSoundEffect();
         DestroySafariZoneStatsWindow();
+        DestroyTimeWindow();
         CleanupOverworldWindowsAndTilemaps();
         ShowPlayerTrainerCard(CB2_ReturnToFieldWithOpenMenu);
         return TRUE;
@@ -526,8 +651,9 @@ static bool8 StartMenuOptionCallback(void)
     {
         PlayRainStoppingSoundEffect();
         DestroySafariZoneStatsWindow();
+        DestroyTimeWindow();
         CleanupOverworldWindowsAndTilemaps();
-        SetMainCallback2(CB2_OptionsMenuFromStartMenu);
+        SetMainCallback2(CB2_InitOptionMenu);
         gMain.savedCallback = CB2_ReturnToFieldWithOpenMenu;
         return TRUE;
     }
@@ -537,20 +663,44 @@ static bool8 StartMenuOptionCallback(void)
 static bool8 StartMenuExitCallback(void)
 {
     DestroySafariZoneStatsWindow();
-    DestroyHelpMessageWindow_();
+    DestroyTimeWindow();
+    if (DEBUG_OVERWORLD_MENU != TRUE)
+        DestroyHelpMessageWindow_();
     CloseStartMenu();
+    return TRUE;
+}
+
+static bool8 StartMenuDebugCallback(void)
+{
+    DestroySafariZoneStatsWindow();
+    DestroyTimeWindow();
+    HideStartMenuDebug(); // Hide start menu without enabling movement
+
+    if (DEBUG_OVERWORLD_MENU == TRUE)
+    {
+        FreezeObjectEvents();
+        Debug_ShowMainMenu();
+    }
     return TRUE;
 }
 
 static bool8 StartMenuSafariZoneRetireCallback(void)
 {
     DestroySafariZoneStatsWindow();
-    DestroyHelpMessageWindow_();
+    DestroyTimeWindow();
+    if (DEBUG_OVERWORLD_MENU != TRUE)
+        DestroyHelpMessageWindow_();
     CloseStartMenu();
     SafariZoneRetirePrompt();
     return TRUE;
 }
 
+static void HideStartMenuDebug(void)
+{
+    PlaySE(SE_SELECT);
+    ClearStdWindowAndFrame(GetStartMenuWindowId(), TRUE);
+    RemoveStartMenuWindow();
+}
 
 static bool8 StartMenuLinkPlayerCallback(void)
 {
@@ -610,7 +760,7 @@ static void StartMenu_PrepareForSave(void)
 
 static u8 RunSaveDialogCB(void)
 {
-    if (RunTextPrinters_CheckPrinter0Active() == TRUE)
+    if (RunTextPrintersAndIsPrinter0Active() == TRUE)
         return 0;
     sSaveDialogIsPrinting = FALSE;
     return sSaveDialogCB();
@@ -618,6 +768,7 @@ static u8 RunSaveDialogCB(void)
 
 void Field_AskSaveTheGame(void)
 {
+    sTimeWindowId = WINDOW_NONE;
     BackupHelpContext();
     SetHelpContext(HELPCONTEXT_SAVE);
     StartMenu_PrepareForSave();
@@ -628,7 +779,7 @@ static void PrintSaveTextWithFollowupFunc(const u8 *str, bool8 (*saveDialogCB)(v
 {
     StringExpandPlaceholders(gStringVar4, str);
     LoadMessageBoxAndFrameGfx(0, TRUE);
-    AddTextPrinterForMessage(TRUE);
+    AddTextPrinterForMessage_2(TRUE);
     sSaveDialogIsPrinting = TRUE;
     sSaveDialogCB = saveDialogCB;
 }
@@ -709,7 +860,9 @@ static u8 SaveDialogCB_PrintAskSaveText(void)
 {
     ClearStdWindowAndFrame(GetStartMenuWindowId(), FALSE);
     RemoveStartMenuWindow();
-    DestroyHelpMessageWindow(0);
+    DestroyTimeWindow();
+    if (DEBUG_OVERWORLD_MENU != TRUE)
+        DestroyHelpMessageWindow(0);
     PrintSaveStats();
     PrintSaveTextWithFollowupFunc(gText_WouldYouLikeToSaveTheGame, SaveDialogCB_AskSavePrintYesNoMenu);
     return SAVECB_RETURN_CONTINUE;
@@ -759,7 +912,7 @@ static u8 SaveDialogCB_AskOverwritePrintYesNoMenu(void)
 
 static u8 SaveDialogCB_AskReplacePreviousFilePrintYesNoMenu(void)
 {
-    DisplayYesNoMenuDefaultNo();
+    DisplayYesNoMenuWithDefault();
     sSaveDialogCB = SaveDialogCB_AskOverwriteOrReplacePreviousFileHandleInput;
     return SAVECB_RETURN_CONTINUE;
 }
@@ -815,7 +968,7 @@ static u8 SaveDialogCB_PrintSaveResult(void)
 
 static u8 SaveDialogCB_WaitPrintSuccessAndPlaySE(void)
 {
-    if (!RunTextPrinters_CheckPrinter0Active())
+    if (!RunTextPrintersAndIsPrinter0Active())
     {
         PlaySE(SE_SAVE);
         sSaveDialogCB = SaveDialogCB_ReturnSuccess;
@@ -835,7 +988,7 @@ static u8 SaveDialogCB_ReturnSuccess(void)
 
 static u8 SaveDialogCB_WaitPrintErrorAndPlaySE(void)
 {
-    if (!RunTextPrinters_CheckPrinter0Active())
+    if (!RunTextPrintersAndIsPrinter0Active())
     {
         PlaySE(SE_BOO);
         sSaveDialogCB = SaveDialogCB_ReturnError;
@@ -972,7 +1125,7 @@ static void PrintSaveStats(void)
     x = (u32)(112 - GetStringWidth(FONT_NORMAL, gStringVar4, -1)) / 2;
     AddTextPrinterParameterized3(sSaveStatsWindowId, FONT_SMALL, 2, 14, sTextColor_StatName, -1, gSaveStatName_Player);
     SaveStatToString(SAVE_STAT_NAME, gStringVar4, 2);
-    Menu_PrintFormatIntlPlayerName(sSaveStatsWindowId, gStringVar4, 60, 14);
+    PrintPlayerNameOnWindow(sSaveStatsWindowId, gStringVar4, 60, 14);
     AddTextPrinterParameterized3(sSaveStatsWindowId, FONT_SMALL, 2, 28, sTextColor_StatName, -1, gSaveStatName_Badges);
     SaveStatToString(SAVE_STAT_BADGES, gStringVar4, 2);
     AddTextPrinterParameterized3(sSaveStatsWindowId, FONT_SMALL, 60, 28, sTextColor_StatValue, -1, gStringVar4);
@@ -996,7 +1149,7 @@ static void CloseSaveStatsWindow(void)
     RemoveWindow(sSaveStatsWindowId);
 }
 
-static void CloseStartMenu(void)
+void CloseStartMenu(void)
 {
     PlaySE(SE_SELECT);
     ClearStdWindowAndFrame(GetStartMenuWindowId(), TRUE);
@@ -1009,4 +1162,10 @@ void AppendToList(u8 *list, u8 *cursor, u8 newEntry)
 {
     list[*cursor] = newEntry;
     (*cursor)++;
+}
+
+static bool8 StartMenuDexNavCallback(void)
+{
+    CreateTask(Task_OpenDexNavFromStartMenu, 0);
+    return TRUE;
 }

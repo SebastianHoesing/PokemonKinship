@@ -1,13 +1,15 @@
+#include "global.h"
+#include "battle_main.h"
 #include "task.h"
 #include "gflib.h"
 #include "menu_helpers.h"
-#include "new_menu_helpers.h"
+#include "menu.h"
 #include "scanline_effect.h"
 #include "decompress.h"
+#include "field_effect.h"
 #include "list_menu.h"
 #include "item_menu.h"
 #include "item.h"
-#include "menu_indicators.h"
 #include "event_object_movement.h"
 #include "random.h"
 #include "constants/songs.h"
@@ -15,7 +17,6 @@
 #include "event_data.h"
 #include "load_save.h"
 #include "battle_transition.h"
-#include "battle_main.h"
 #include "battle.h"
 #include "battle_controllers.h"
 #include "global.fieldmap.h"
@@ -25,8 +26,8 @@
 #include "graphics.h"
 #include "fieldmap.h"
 #include "strings.h"
-#include "constants/field_effects.h"
 #include "constants/event_objects.h"
+#include "constants/field_effects.h"
 
 struct TeachyTvCtrlBlk
 {
@@ -168,57 +169,57 @@ static const struct WindowTemplate sWindowTemplates[] =
 static const struct ListMenuItem sListMenuItems[] = 
 {
     {
-        .label = gTeachyTvString_TeachBattle,
-        .index = TTVSCR_BATTLE
+        .name = gTeachyTvString_TeachBattle,
+        .id = TTVSCR_BATTLE
     },
     {
-        .label = gTeachyTvString_StatusProblems,
-        .index = TTVSCR_STATUS
+        .name = gTeachyTvString_StatusProblems,
+        .id = TTVSCR_STATUS
     },
     {
-        .label = gTeachyTvString_TypeMatchups,
-        .index = TTVSCR_MATCHUPS
+        .name = gTeachyTvString_TypeMatchups,
+        .id = TTVSCR_MATCHUPS
     },
     {
-        .label = gTeachyTvString_CatchPkmn,
-        .index = TTVSCR_CATCHING
+        .name = gTeachyTvString_CatchPkmn,
+        .id = TTVSCR_CATCHING
     },
     {
-        .label = gTeachyTvString_AboutTMs,
-        .index = TTVSCR_TMS
+        .name = gTeachyTvString_AboutTMs,
+        .id = TTVSCR_TMS
     },
     {
-        .label = gTeachyTvString_RegisterItem,
-        .index = TTVSCR_REGISTER
+        .name = gTeachyTvString_RegisterItem,
+        .id = TTVSCR_REGISTER
     },
 
     {
-        .label = gTeachyTvString_Cancel,
-        .index = -2
+        .name = gTeachyTvString_Cancel,
+        .id = -2
     },
 };
 
 static const struct ListMenuItem sListMenuItems_NoTMCase[] = 
 {
     {
-        .label = gTeachyTvString_TeachBattle,
-        .index = TTVSCR_BATTLE
+        .name = gTeachyTvString_TeachBattle,
+        .id = TTVSCR_BATTLE
     },
     {
-        .label = gTeachyTvString_StatusProblems,
-        .index = TTVSCR_STATUS
+        .name = gTeachyTvString_StatusProblems,
+        .id = TTVSCR_STATUS
     },
     {
-        .label = gTeachyTvString_TypeMatchups,
-        .index = TTVSCR_MATCHUPS
+        .name = gTeachyTvString_TypeMatchups,
+        .id = TTVSCR_MATCHUPS
     },
     {
-        .label = gTeachyTvString_CatchPkmn,
-        .index = TTVSCR_CATCHING
+        .name = gTeachyTvString_CatchPkmn,
+        .id = TTVSCR_CATCHING
     },
     {
-        .label = gTeachyTvString_Cancel,
-        .index = -2
+        .name = gTeachyTvString_Cancel,
+        .id = -2
     },
 };
 
@@ -450,7 +451,6 @@ void SetTeachyTvControllerModeToResume(void)
 static void TeachyTvMainCallback(void)
 {
     u8 taskId;
-    struct Task *taskAddr;
 
     switch (gMain.state)
     {
@@ -505,13 +505,14 @@ static void TeachyTvMainCallback(void)
 
 static void TeachyTvSetupBg(void)
 {
-    ResetAllBgsCoordinatesAndBgCntRegs();
+    ResetVramOamAndBgCntRegs();
     ResetBgsAndClearDma3BusyFlags(0);
     InitBgsFromTemplates(0, sBgTemplates, 4);
     SetBgTilemapBuffer(1, sResources->screenTilemap);
     SetBgTilemapBuffer(2, sResources->buffer2);
     SetBgTilemapBuffer(3, sResources->buffer3);
-    SetGpuReg(REG_OFFSET_DISPCNT, 0x3040);
+    ResetAllBgsCoordinates();
+    SetGpuReg(REG_OFFSET_DISPCNT, DISPCNT_WIN0_ON | DISPCNT_OBJ_ON | DISPCNT_OBJ_1D_MAP);
     ShowBg(0);
     ShowBg(1);
     ShowBg(2);
@@ -528,9 +529,9 @@ static void TeachyTvLoadGraphic(void)
     u16 src = RGB_BLACK;
     ResetTempTileDataBuffers();
     DecompressAndCopyTileDataToVram(1, gTeachyTv_Gfx, 0, 0, 0);
-    LZDecompressWram(gTeachyTvScreen_Tilemap, sResources->screenTilemap);
-    LZDecompressWram(gTeachyTvTitle_Tilemap, sResources->titleTilemap);
-    LoadCompressedPalette(gTeachyTv_Pal, BG_PLTT_ID(0), 4 * PLTT_SIZE_4BPP);
+    DecompressDataWithHeaderWram(gTeachyTvScreen_Tilemap, sResources->screenTilemap);
+    DecompressDataWithHeaderWram(gTeachyTvTitle_Tilemap, sResources->titleTilemap);
+    LoadPalette(gTeachyTv_Pal, BG_PLTT_ID(0), 4 * PLTT_SIZE_4BPP);
     LoadPalette(&src, BG_PLTT_ID(0), sizeof(src));
     LoadSpritePalette(&gSpritePalette_GeneralFieldEffect1);
     TeachyTvLoadBg3Map(sResources->buffer3);
@@ -676,7 +677,7 @@ static void TeachyTvSetupPostBattleWindowAndObj(u8 taskId)
 static void TeachyTvInitTextPrinter(const u8 *text)
 {
     gTextFlags.autoScroll = 0;
-    AddTextPrinterParameterized2(0, FONT_MALE, text, GetTextSpeedSetting(), 0, 1, 0xC, 3);
+    AddTextPrinterParameterized2(0, FONT_MALE, text, GetPlayerTextSpeedDelay(), 0, 1, 0xC, 3);
 }
 
 static void TeachyTvFree(void)
@@ -801,7 +802,7 @@ static void TTVcmd_NpcMoveAndSetupTextPrinter(u8 taskId)
 static void TTVcmd_IdleIfTextPrinterIsActive(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
-    if (!RunTextPrinters_CheckActive(0))
+    if (!RunTextPrintersRetIsActive(0))
         ++data[3];
 }
 
@@ -929,7 +930,7 @@ static const u8 sGrassAnimArray[] =
 static void TTVcmd_IdleIfTextPrinterIsActive2(u8 taskId)
 {
     s16 *data = gTasks[taskId].data;
-    if (!RunTextPrinters_CheckActive(0))
+    if (!RunTextPrintersRetIsActive(0))
         ++data[3];
 }
 
@@ -1109,7 +1110,7 @@ static void TeachyTvGrassAnimationMain(u8 taskId, s16 x, s16 y, u8 subpriority, 
 
     if (sResources->grassAnimDisabled != 1 && TeachyTvGrassAnimationCheckIfNeedsToGenerateGrassObj(x - 0x10, y))
     {
-        spriteId = CreateSprite(gFieldEffectObjectTemplatePointers[FLDEFFOBJ_TALL_GRASS], 0, 0, subpriority);
+        spriteId = CreateSprite(&gFieldEffectObjectTemplate_TallGrass, 0, 0, subpriority);
         obj = &gSprites[spriteId];
         obj->x2 = x;
         obj->y2 = y + 8;
@@ -1159,7 +1160,6 @@ static void TeachyTvGrassAnimationObjCallback(struct Sprite *sprite)
 static u8 TeachyTvGrassAnimationCheckIfNeedsToGenerateGrassObj(s16 x, s16 y)
 {
     const u8 * arr;
-    struct TeachyTvBuf *ptr;
     int high, low;
     if ((x < 0) || (y < 0))
         return 0;
@@ -1230,8 +1230,8 @@ static void TeachyTvLoadBg3Map(u16 *buffer)
     palIndicesBuffer = Alloc(16);
     memset(palIndicesBuffer, 0xFF, 16);
 
-    TeachyTvLoadMapTilesetToBuffer(layout->primaryTileset, tilesetsBuffer, NUM_TILES_IN_PRIMARY);
-    TeachyTvLoadMapTilesetToBuffer(layout->secondaryTileset, tilesetsBuffer + NUM_TILES_IN_PRIMARY * TILE_SIZE_4BPP, NUM_TILES_TOTAL - NUM_TILES_IN_PRIMARY);
+    TeachyTvLoadMapTilesetToBuffer(GetPrimaryTilesetFromLayout(layout), tilesetsBuffer, NUM_TILES_IN_PRIMARY);
+    TeachyTvLoadMapTilesetToBuffer(GetSecondaryTilesetFromLayout(layout), tilesetsBuffer + NUM_TILES_IN_PRIMARY * TILE_SIZE_4BPP, NUM_TILES_TOTAL - NUM_TILES_IN_PRIMARY);
 
     for (i = 0; i < 9; i++)
     {
@@ -1260,9 +1260,9 @@ static void TeachyTvLoadBg3Map(u16 *buffer)
     {
         memset(mapTilesRowBuffer, 0, 0x80);
         if (blockIndicesBuffer[i] < NUM_METATILES_IN_PRIMARY)
-            TeachyTvComputeMapTilesFromTilesetAndMetaTiles((const void *)layout->primaryTileset->metatiles + blockIndicesBuffer[i] * 16, mapTilesRowBuffer, tilesetsBuffer);
+            TeachyTvComputeMapTilesFromTilesetAndMetaTiles((const void *)GetPrimaryTileset(layout)->metatiles + blockIndicesBuffer[i] * 16, mapTilesRowBuffer, tilesetsBuffer);
         else
-            TeachyTvComputeMapTilesFromTilesetAndMetaTiles((const void *)layout->secondaryTileset->metatiles + (blockIndicesBuffer[i] - NUM_METATILES_IN_PRIMARY) * 16, mapTilesRowBuffer, tilesetsBuffer);
+            TeachyTvComputeMapTilesFromTilesetAndMetaTiles((const void *)GetSecondaryTileset(layout)->metatiles + (blockIndicesBuffer[i] - NUM_METATILES_IN_PRIMARY) * 16, mapTilesRowBuffer, tilesetsBuffer);
         CpuFastCopy(mapTilesRowBuffer, bgTilesBuffer + i * 0x40, 0x80);
     }
 
@@ -1283,7 +1283,7 @@ static void TeachyTvLoadMapTilesetToBuffer(const struct Tileset *ts, u8 *dstBuff
         if (!ts->isCompressed)
             CpuFastCopy(ts->tiles, dstBuffer, 0x20 * size);
         else
-            LZDecompressWram(ts->tiles, dstBuffer);
+            DecompressDataWithHeaderWram(ts->tiles, dstBuffer);
     }
 }
 
@@ -1291,9 +1291,9 @@ static void TeachyTvPushBackNewMapPalIndexArrayEntry(const struct MapLayout *mSt
 {
     const u16 * metaTileEntryAddr;
     if (mapEntry < NUM_METATILES_IN_PRIMARY)
-        metaTileEntryAddr = &mStruct->primaryTileset->metatiles[8 * mapEntry];
+        metaTileEntryAddr = &GetPrimaryTileset(mStruct)->metatiles[8 * mapEntry];
     else
-        metaTileEntryAddr = &mStruct->secondaryTileset->metatiles[8 * (mapEntry - NUM_METATILES_IN_PRIMARY)];
+        metaTileEntryAddr = &GetSecondaryTileset(mStruct)->metatiles[8 * (mapEntry - NUM_METATILES_IN_PRIMARY)];
     buf1[0] = (TeachyTvComputePalIndexArrayEntryByMetaTile(palIndexArray, metaTileEntryAddr[0]) << 12) + 4 * offset;
     buf1[1] = (TeachyTvComputePalIndexArrayEntryByMetaTile(palIndexArray, metaTileEntryAddr[1]) << 12) + 4 * offset + 1;
     buf1[32] = (TeachyTvComputePalIndexArrayEntryByMetaTile(palIndexArray, metaTileEntryAddr[2]) << 12) + 4 * offset + 2;
@@ -1384,7 +1384,6 @@ static u16 TeachyTvComputePalIndexArrayEntryByMetaTile(u8 *palIndexArrayBuf, u16
 static void TeachyTvLoadMapPalette(const struct MapLayout * mStruct, const u8 * palIndexArray)
 {
     u8 i;
-    const struct Tileset * ts;
     const u16 * dest;
 
     for (i = 0; i < 16; i++)
@@ -1392,9 +1391,9 @@ static void TeachyTvLoadMapPalette(const struct MapLayout * mStruct, const u8 * 
         if (palIndexArray[i] == 0xFF)
             break;
         if (palIndexArray[i] >= NUM_PALS_IN_PRIMARY)
-            dest = mStruct->secondaryTileset->palettes[palIndexArray[i]];
+            dest = GetSecondaryTileset(mStruct)->palettes[palIndexArray[i]];
         else
-            dest = mStruct->primaryTileset->palettes[palIndexArray[i]];
+            dest = GetPrimaryTileset(mStruct)->palettes[palIndexArray[i]];
         LoadPalette(dest, BG_PLTT_ID(15 - i), PLTT_SIZE_4BPP);
     }
 }

@@ -1,7 +1,7 @@
 #include "global.h"
 #include "field_message_box.h"
 #include "gflib.h"
-#include "new_menu_helpers.h"
+#include "menu.h"
 #include "quest_log.h"
 #include "script.h"
 #include "text_window.h"
@@ -9,7 +9,6 @@
 static EWRAM_DATA u8 sMessageBoxType = 0;
 
 static void ExpandStringAndStartDrawFieldMessageBox(const u8 *str);
-static void StartDrawFieldMessageBox(void);
 
 void InitFieldMessageBox(void)
 {
@@ -31,9 +30,9 @@ static void Task_DrawFieldMessageBox(u8 taskId)
             LoadQuestLogWindowTiles(0, 0x200);
         }
         else if (!IsMsgSignpost())
-            LoadStdWindowFrameGfx();
+            LoadMessageBoxAndBorderGfx();
         else
-            LoadSignpostWindowFrameGfx();
+            LoadSignPostWindowFrameGfx();
         task->data[0]++;
         break;
     case 1:
@@ -41,7 +40,7 @@ static void Task_DrawFieldMessageBox(u8 taskId)
         task->data[0]++;
         break;
     case 2:
-        if (RunTextPrinters_CheckPrinter0Active() != TRUE)
+        if (RunTextPrintersAndIsPrinter0Active() != TRUE)
         {
             sMessageBoxType = FIELD_MESSAGE_BOX_HIDDEN;
             DestroyTask(taskId);
@@ -80,36 +79,10 @@ bool8 ShowFieldAutoScrollMessage(const u8 *str)
     return TRUE;
 }
 
-// Unused
-static bool8 ForceShowFieldAutoScrollMessage(const u8 *str)
-{
-    sMessageBoxType = FIELD_MESSAGE_BOX_AUTO_SCROLL;
-    ExpandStringAndStartDrawFieldMessageBox(str);
-    return TRUE;
-}
-
-// Unused
-// Same as ShowFieldMessage, but instead of accepting a string argument,
-// it just prints whatever that's already in gStringVar4
-static bool8 ShowFieldMessageFromBuffer(void)
-{
-    if (sMessageBoxType != FIELD_MESSAGE_BOX_HIDDEN)
-        return FALSE;
-    sMessageBoxType = FIELD_MESSAGE_BOX_NORMAL;
-    StartDrawFieldMessageBox();
-    return TRUE;
-}
-
 static void ExpandStringAndStartDrawFieldMessageBox(const u8 *str)
 {
     StringExpandPlaceholders(gStringVar4, str);
-    AddTextPrinterDiffStyle(TRUE);
-    CreateTask_DrawFieldMessageBox();
-}
-
-static void StartDrawFieldMessageBox(void)
-{
-    AddTextPrinterDiffStyle(TRUE);
+    AddTextPrinterForMessage(TRUE);
     CreateTask_DrawFieldMessageBox();
 }
 
@@ -131,12 +104,4 @@ bool8 IsFieldMessageBoxHidden(void)
         return TRUE;
     else
         return FALSE;
-}
-
-// Unused
-static void ReplaceFieldMessageWithFrame(void)
-{
-    DestroyTask_DrawFieldMessageBox();
-    DrawStdWindowFrame(0, TRUE);
-    sMessageBoxType = FIELD_MESSAGE_BOX_HIDDEN;
 }

@@ -8,7 +8,6 @@
 #include "strings.h"
 #include "menu.h"
 #include "heal_location.h"
-#include "new_menu_helpers.h"
 #include "event_object_movement.h"
 #include "field_fadetransition.h"
 #include "event_scripts.h"
@@ -193,7 +192,7 @@ static u8 StartUpdateFlashLevelEffect(s32 centerX, s32 centerY, s32 initialFlash
 // A higher flash level is a smaller flash radius (more darkness). 0 is full brightness
 void AnimateFlash(u8 newFlashLevel)
 {
-    u8 curFlashLevel = Overworld_GetFlashLevel();
+    u8 curFlashLevel = GetFlashLevel();
     bool32 fullBrightness = FALSE;
     if (newFlashLevel == 0)
         fullBrightness = TRUE;
@@ -231,12 +230,6 @@ static void Task_EnableScriptAfterMusicFade(u8 taskId)
 #define DIR_WIPE_IN 0 // From edges to center.
 #define DIR_WIPE_OUT 1 // From center to edges.
 #define tChildOffset data[0]
-
-static void DoInwardBarnDoorFade(void)
-{
-    u8 taskId = CreateTask(Task_BarnDoorWipe, 80);
-    gTasks[taskId].tDirection = DIR_WIPE_IN;
-}
 
 void DoOutwardBarnDoorWipe(void)
 {
